@@ -94,6 +94,7 @@ export default function TrackSettingsPage() {
       setBpm(trackData.bpm?.toString() ?? "");
       setMusicalKey(trackData.key ?? "");
       setProjectId(trackData.project_id);
+      if (trackData.duration_seconds) setDuration(trackData.duration_seconds);
     }
     setProjects(projectsData ?? []);
     setLoading(false);
@@ -171,6 +172,7 @@ export default function TrackSettingsPage() {
         <audio
           ref={audioRef}
           src={track.file_url}
+          preload="metadata"
           onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime ?? 0)}
           onLoadedMetadata={() => setDuration(audioRef.current?.duration ?? 0)}
           onEnded={() => setPlaying(false)}
@@ -234,31 +236,68 @@ export default function TrackSettingsPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-1.5">
-            <label className="text-xs font-medium text-muted-foreground">BPM</label>
-            <input
-              type="number"
-              min={40}
-              max={300}
-              value={bpm}
-              onChange={(e) => setBpm(e.target.value)}
-              placeholder="ex: 140"
-              className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
-            />
-          </div>
-          <div className="space-y-1.5">
+        <div className="space-y-1.5">
+          <label className="text-xs font-medium text-muted-foreground">BPM</label>
+          <input
+            type="number"
+            min={40}
+            max={300}
+            value={bpm}
+            onChange={(e) => setBpm(e.target.value)}
+            placeholder="ex: 140"
+            className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
             <label className="text-xs font-medium text-muted-foreground">Tonalité</label>
-            <select
-              value={musicalKey}
-              onChange={(e) => setMusicalKey(e.target.value)}
-              className="w-full rounded-lg border border-border bg-secondary px-3 py-2.5 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
-            >
-              <option value="">— Choisir —</option>
-              {MUSICAL_KEYS.map((k) => (
-                <option key={k} value={k}>{k}</option>
-              ))}
-            </select>
+            {musicalKey && (
+              <button
+                onClick={() => setMusicalKey("")}
+                className="text-[10px] text-muted-foreground hover:text-foreground transition"
+              >
+                Effacer
+              </button>
+            )}
+          </div>
+          <div className="space-y-1">
+            <div className="flex items-center gap-1.5">
+              <span className="w-7 shrink-0 text-center text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">Maj</span>
+              <div className="flex flex-1 gap-0.5">
+                {["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"].map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => setMusicalKey(musicalKey === k ? "" : k)}
+                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition-all ${
+                      musicalKey === k
+                        ? "bg-primary text-primary-foreground shadow shadow-primary/40 scale-105"
+                        : "bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground"
+                    }`}
+                  >
+                    {k}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-7 shrink-0 text-center text-[9px] font-semibold uppercase tracking-widest text-muted-foreground/40">min</span>
+              <div className="flex flex-1 gap-0.5">
+                {["Cm","C#m","Dm","D#m","Em","Fm","F#m","Gm","G#m","Am","A#m","Bm"].map((k) => (
+                  <button
+                    key={k}
+                    onClick={() => setMusicalKey(musicalKey === k ? "" : k)}
+                    className={`flex-1 rounded-md py-1.5 text-[11px] font-semibold transition-all ${
+                      musicalKey === k
+                        ? "bg-violet-500/20 border border-violet-500/50 text-violet-300 shadow shadow-violet-500/20 scale-105"
+                        : "bg-secondary text-muted-foreground hover:bg-accent hover:text-foreground"
+                    }`}
+                  >
+                    {k.replace("m", "")}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
 

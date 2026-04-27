@@ -90,6 +90,7 @@ export default function VaultPlayer({ track, onClose }: VaultPlayerProps) {
       <audio
         ref={audioRef}
         src={track.file_url}
+        preload="metadata"
         onTimeUpdate={onTimeUpdate}
         onLoadedMetadata={onLoadedMetadata}
         onEnded={onEnded}

@@ -185,13 +185,13 @@ export default function VaultPage() {
       <VaultUpload onUploaded={fetchData} projectId={activeProject} />
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground border-b border-border">
-          <span>#</span>
-          <span>Titre</span>
-          <span>Version</span>
-          <span>BPM</span>
-          <span>Durée</span>
-          <span></span>
+        <div className="flex items-center gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground border-b border-border">
+          <div className="w-7 shrink-0" />
+          <div className="flex-1 min-w-0">Titre</div>
+          <div className="w-28 shrink-0">Version</div>
+          <div className="w-20 shrink-0 text-right">BPM</div>
+          <div className="w-14 shrink-0 text-right">Durée</div>
+          <div className="w-6 shrink-0" />
         </div>
 
         {loading && (
@@ -216,38 +216,42 @@ export default function VaultPage() {
             onDragStart={() => onDragStart(track.id)}
             onDragEnd={onDragEnd}
             onClick={() => setSelectedTrack(track)}
-            className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-accent/50 transition group border-b border-border last:border-0 cursor-pointer ${
+            className={`flex items-center gap-4 px-4 py-3 hover:bg-accent/50 transition group border-b border-border last:border-0 cursor-pointer ${
               draggingTrackId === track.id ? "opacity-40 scale-[0.99]" : ""
             } ${
-              selectedTrack?.id === track.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
+              selectedTrack?.id === track.id ? "bg-primary/5 shadow-[inset_2px_0_0_hsl(var(--primary))]" : ""
             }`}
           >
-            <div className="flex h-7 w-7 items-center justify-center rounded-md bg-secondary group-hover:bg-primary/10 transition">
+            <div className="w-7 h-7 shrink-0 flex items-center justify-center rounded-md bg-secondary group-hover:bg-primary/10 transition">
               {selectedTrack?.id === track.id
                 ? <Play className="h-3.5 w-3.5 text-primary" />
                 : <Music2 className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition" />
               }
             </div>
-            <div>
-              <p className="text-sm font-medium text-foreground">{track.title}</p>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium text-foreground truncate">{track.title}</p>
               <p className="text-xs text-muted-foreground">{formatDate(track.created_at)}</p>
             </div>
-            <span className={`rounded-md px-2 py-0.5 text-xs font-medium capitalize ${versionColors[track.version] ?? "bg-zinc-500/10 text-zinc-400"}`}>
-              {track.version}
-            </span>
-            <span className="text-xs text-muted-foreground">
+            <div className="w-28 shrink-0">
+              <span className={`rounded-md px-2 py-0.5 text-xs font-medium capitalize ${versionColors[track.version] ?? "bg-zinc-500/10 text-zinc-400"}`}>
+                {track.version}
+              </span>
+            </div>
+            <div className="w-20 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
               {track.bpm ? `${track.bpm} BPM` : "—"}
-            </span>
-            <span className="text-xs text-muted-foreground">
+            </div>
+            <div className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
               {formatDuration(track.duration_seconds)}
-            </span>
-            <Link
-              href={`/vault/${track.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100 flex items-center"
-            >
-              <MoreHorizontal className="h-4 w-4" />
-            </Link>
+            </div>
+            <div className="w-6 shrink-0 flex justify-center">
+              <Link
+                href={`/vault/${track.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100 flex items-center"
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </Link>
+            </div>
           </div>
         ))}
       </div>

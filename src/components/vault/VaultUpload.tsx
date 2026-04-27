@@ -15,6 +15,17 @@ interface VaultUploadProps {
   projectId?: string | null;
 }
 
+function getAudioDuration(file: File): Promise<number> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const audio = document.createElement("audio");
+    audio.preload = "metadata";
+    audio.onloadedmetadata = () => { resolve(audio.duration); URL.revokeObjectURL(url); };
+    audio.onerror = () => { resolve(0); URL.revokeObjectURL(url); };
+    audio.src = url;
+  });
+}
+
 export default function VaultUpload({ onUploaded, projectId }: VaultUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -43,6 +54,8 @@ export default function VaultUpload({ onUploaded, projectId }: VaultUploadProps)
       const fileName = `${Date.now()}_${file.name.replace(/\s+/g, "_")}`;
       setProgress(`Upload de ${file.name}...`);
 
+      const durationSeconds = await getAudioDuration(file);
+
       const { data, error: uploadError } = await supabase.storage
         .from("audio")
         .upload(fileName, file, { cacheControl: "3600", upsert: false });
@@ -61,22 +74,23 @@ export default function VaultUpload({ onUploaded, projectId }: VaultUploadProps)
 
       const { error: dbError } = await supabase.from("tracks").insert({
         title,
-        version: "untitled",
+        version: "demo",
         file_url: urlData.publicUrl,
         project_id: projectId ?? null,
+        duration_seconds: durationSeconds > 0 ? Math.round(durationSeconds) : null,
       });
 
       if (dbError) {
         setError(`Fichier uploadé mais erreur DB : ${dbError.message}`);
       } else {
         setSuccess(`"${title}" ajouté au Vault !`);
-        onUploaded?.({ title, file_url: urlData.publicUrl });
+        onUploaded?.({ title, file_url: urlData.publicUrl, duration_seconds: durationSeconds > 0 ? Math.round(durationSeconds) : undefined });
       }
 
       setUploading(false);
       setProgress(null);
     },
-    [supabase, onUploaded]
+    [supabase, onUploaded, projectId]
   );
 
   const onDrop = useCallback(

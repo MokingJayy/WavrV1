@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import GlobalSearch from "./GlobalSearch";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types";
 import NotificationBell from "@/components/layout/NotificationBell";
@@ -54,9 +55,7 @@ export default function Header({ profile, email = "" }: HeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
-          <Search className="h-4 w-4" />
-        </button>
+        <GlobalSearch />
         <NotificationBell />
 
         <Link

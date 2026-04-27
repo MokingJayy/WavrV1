@@ -1,4 +1,5 @@
-import { Archive, Upload, Music2, MoreHorizontal } from "lucide-react";
+import { Music2, MoreHorizontal } from "lucide-react";
+import VaultUpload from "@/components/vault/VaultUpload";
 
 const mockTracks = [
   { id: "1", title: "Track 01", version: "Mixup", bpm: 140, duration: "3:42", date: "24 avr." },
@@ -21,17 +22,9 @@ export default function VaultPage() {
           <h2 className="text-lg font-semibold text-foreground">The Vault</h2>
           <p className="text-sm text-muted-foreground mt-0.5">Versions audio & lecteur Hi-Fi</p>
         </div>
-        <button className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition">
-          <Upload className="h-4 w-4" />
-          Uploader
-        </button>
       </div>
 
-      <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center hover:border-primary/30 transition cursor-pointer">
-        <Archive className="mx-auto h-8 w-8 text-muted-foreground/40" />
-        <p className="mt-3 text-sm font-medium text-foreground">Glisser un fichier audio ici</p>
-        <p className="text-xs text-muted-foreground mt-1">WAV, AIFF, MP3 — max 500 MB</p>
-      </div>
+      <VaultUpload />
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground border-b border-border">

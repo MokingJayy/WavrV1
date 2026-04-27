@@ -19,6 +19,7 @@ create table public.profiles (
   full_name text not null default '',
   avatar_url text,
   role text not null default 'artist' check (role in ('artist', 'engineer', 'manager', 'admin', 'guest')),
+  is_approved boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -40,6 +41,15 @@ $$ language plpgsql security definer;
 create trigger on_auth_user_created
   after insert on auth.users
   for each row execute procedure public.handle_new_user();
+
+-- Retourne true si l'utilisateur courant est approuvé
+create or replace function public.is_approved_member()
+returns boolean as $$
+  select coalesce(
+    (select is_approved from public.profiles where id = auth.uid()),
+    false
+  );
+$$ language sql security definer stable;
 
 
 -- ============================================================
@@ -188,10 +198,16 @@ on conflict do nothing;
 
 
 -- ============================================================
--- MIGRATION : si la BDD existe déjà, exécuter cette commande
+-- MIGRATION : si la BDD existe déjà, exécuter ces commandes
 -- ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
 -- ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
 --   CHECK (role IN ('artist', 'engineer', 'manager', 'admin', 'guest'));
+-- ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS is_approved boolean not null default false;
+-- UPDATE public.profiles SET is_approved = true; -- approuve les comptes existants
+-- CREATE OR REPLACE FUNCTION public.is_approved_member() RETURNS boolean AS $$
+--   SELECT COALESCE((SELECT is_approved FROM public.profiles WHERE id = auth.uid()), false);
+-- $$ LANGUAGE sql SECURITY DEFINER STABLE;
+-- -- Puis supprimer et recréer les policies (voir bloc RLS ci-dessous)
 -- ============================================================
 
 
@@ -209,44 +225,44 @@ alter table public.royalty_splits enable row level security;
 alter table public.gallery_assets enable row level security;
 alter table public.stage_setlists enable row level security;
 
--- Profiles : chacun voit tous les profils, modifie seulement le sien
-create policy "Profiles visibles par tous" on public.profiles for select using (auth.role() = 'authenticated');
+-- Profiles : lecture ouverte aux authentifiés (nécessaire pour vérifier is_approved)
+create policy "Profiles visibles" on public.profiles for select using (auth.role() = 'authenticated');
 create policy "Profil modifiable par son owner" on public.profiles for update using (auth.uid() = id);
 
--- Projects, Tracks, Cues, Timeline, Royalties, Gallery, Stage : accessibles aux utilisateurs connectés
-create policy "Lecture authentifiée" on public.projects for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.projects for insert with check (auth.role() = 'authenticated');
+-- Tout le reste : réservé aux membres approuvés
+create policy "Lecture projets" on public.projects for select using (public.is_approved_member());
+create policy "Écriture projets" on public.projects for insert with check (public.is_approved_member());
 
-create policy "Lecture authentifiée" on public.tracks for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.tracks for insert with check (auth.role() = 'authenticated');
-create policy "Suppression par owner" on public.tracks for delete using (auth.uid() = uploaded_by);
+create policy "Lecture tracks" on public.tracks for select using (public.is_approved_member());
+create policy "Écriture tracks" on public.tracks for insert with check (public.is_approved_member());
+create policy "Suppression par owner" on public.tracks for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
 
-create policy "Lecture authentifiée" on public.cues for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.cues for insert with check (auth.role() = 'authenticated');
-create policy "Modification par owner" on public.cues for update using (auth.uid() = author_id);
+create policy "Lecture cues" on public.cues for select using (public.is_approved_member());
+create policy "Écriture cues" on public.cues for insert with check (public.is_approved_member());
+create policy "Modification par owner" on public.cues for update using (public.is_approved_member() and auth.uid() = author_id);
 
-create policy "Canaux visibles" on public.channels for select using (auth.role() = 'authenticated');
-create policy "Création de canal authentifiée" on public.channels for insert with check (auth.role() = 'authenticated');
+create policy "Canaux visibles" on public.channels for select using (public.is_approved_member());
+create policy "Création de canal" on public.channels for insert with check (public.is_approved_member());
 
-create policy "Messages visibles" on public.messages for select using (auth.role() = 'authenticated');
-create policy "Envoi messages" on public.messages for insert with check (auth.role() = 'authenticated');
+create policy "Messages visibles" on public.messages for select using (public.is_approved_member());
+create policy "Envoi messages" on public.messages for insert with check (public.is_approved_member());
 
-create policy "Lecture authentifiée" on public.timeline_events for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.timeline_events for insert with check (auth.role() = 'authenticated');
+create policy "Lecture timeline" on public.timeline_events for select using (public.is_approved_member());
+create policy "Écriture timeline" on public.timeline_events for insert with check (public.is_approved_member());
 
-create policy "Lecture authentifiée" on public.royalty_splits for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.royalty_splits for insert with check (auth.role() = 'authenticated');
+create policy "Lecture royalties" on public.royalty_splits for select using (public.is_approved_member());
+create policy "Écriture royalties" on public.royalty_splits for insert with check (public.is_approved_member());
 
-create policy "Lecture authentifiée" on public.gallery_assets for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.gallery_assets for insert with check (auth.role() = 'authenticated');
+create policy "Lecture gallery" on public.gallery_assets for select using (public.is_approved_member());
+create policy "Écriture gallery" on public.gallery_assets for insert with check (public.is_approved_member());
 
-create policy "Lecture authentifiée" on public.stage_setlists for select using (auth.role() = 'authenticated');
-create policy "Écriture authentifiée" on public.stage_setlists for insert with check (auth.role() = 'authenticated');
+create policy "Lecture stage" on public.stage_setlists for select using (public.is_approved_member());
+create policy "Écriture stage" on public.stage_setlists for insert with check (public.is_approved_member());
 
--- Storage : audio et documents privés, covers publiques
-create policy "Upload audio authentifié" on storage.objects for insert with check (bucket_id = 'audio' and auth.role() = 'authenticated');
-create policy "Lecture audio authentifiée" on storage.objects for select using (bucket_id = 'audio' and auth.role() = 'authenticated');
-create policy "Upload covers authentifié" on storage.objects for insert with check (bucket_id = 'covers' and auth.role() = 'authenticated');
+-- Storage : réservé aux membres approuvés
+create policy "Upload audio" on storage.objects for insert with check (bucket_id = 'audio' and public.is_approved_member());
+create policy "Lecture audio" on storage.objects for select using (bucket_id = 'audio' and public.is_approved_member());
+create policy "Upload covers" on storage.objects for insert with check (bucket_id = 'covers' and public.is_approved_member());
 create policy "Lecture covers publique" on storage.objects for select using (bucket_id = 'covers');
-create policy "Upload documents authentifié" on storage.objects for insert with check (bucket_id = 'documents' and auth.role() = 'authenticated');
-create policy "Lecture documents authentifiée" on storage.objects for select using (bucket_id = 'documents' and auth.role() = 'authenticated');
+create policy "Upload documents" on storage.objects for insert with check (bucket_id = 'documents' and public.is_approved_member());
+create policy "Lecture documents" on storage.objects for select using (bucket_id = 'documents' and public.is_approved_member());

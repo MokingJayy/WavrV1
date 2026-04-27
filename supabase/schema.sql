@@ -18,7 +18,7 @@ create table public.profiles (
   email text not null,
   full_name text not null default '',
   avatar_url text,
-  role text not null default 'artist' check (role in ('artist', 'engineer', 'manager', 'admin')),
+  role text not null default 'artist' check (role in ('artist', 'engineer', 'manager', 'admin', 'guest')),
   created_at timestamptz not null default now()
 );
 
@@ -26,8 +26,13 @@ create table public.profiles (
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
-  insert into public.profiles (id, email, full_name)
-  values (new.id, new.email, coalesce(new.raw_user_meta_data->>'full_name', ''));
+  insert into public.profiles (id, email, full_name, role)
+  values (
+    new.id,
+    new.email,
+    coalesce(new.raw_user_meta_data->>'full_name', ''),
+    coalesce(new.raw_user_meta_data->>'role', 'artist')
+  );
   return new;
 end;
 $$ language plpgsql security definer;
@@ -104,10 +109,11 @@ create table public.messages (
 
 -- Canaux par défaut
 insert into public.channels (name, description, allowed_roles) values
-  ('général', 'Canal principal', '{artist,engineer,manager,admin}'),
+  ('général', 'Canal principal', '{artist,engineer,manager,admin,guest}'),
   ('ingé-son', 'Canal ingénieurs du son', '{engineer,admin}'),
   ('artistes', 'Canal artistes', '{artist,admin}'),
-  ('management', 'Canal management', '{manager,admin}');
+  ('management', 'Canal management', '{manager,admin}'),
+  ('invités', 'Canal invités', '{guest,admin}');
 
 
 -- ============================================================
@@ -182,6 +188,14 @@ on conflict do nothing;
 
 
 -- ============================================================
+-- MIGRATION : si la BDD existe déjà, exécuter cette commande
+-- ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_role_check;
+-- ALTER TABLE public.profiles ADD CONSTRAINT profiles_role_check
+--   CHECK (role IN ('artist', 'engineer', 'manager', 'admin', 'guest'));
+-- ============================================================
+
+
+-- ============================================================
 -- 12. RLS (Row Level Security)
 -- ============================================================
 alter table public.profiles enable row level security;
@@ -212,6 +226,7 @@ create policy "Écriture authentifiée" on public.cues for insert with check (au
 create policy "Modification par owner" on public.cues for update using (auth.uid() = author_id);
 
 create policy "Canaux visibles" on public.channels for select using (auth.role() = 'authenticated');
+create policy "Création de canal authentifiée" on public.channels for insert with check (auth.role() = 'authenticated');
 
 create policy "Messages visibles" on public.messages for select using (auth.role() = 'authenticated');
 create policy "Envoi messages" on public.messages for insert with check (auth.role() = 'authenticated');

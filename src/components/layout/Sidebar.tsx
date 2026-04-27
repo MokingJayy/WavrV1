@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -18,6 +19,8 @@ import {
   LogOut,
   Music,
   HardDrive,
+  PanelLeftOpen,
+  PanelLeftClose,
 } from "lucide-react";
 
 const navigation = [
@@ -80,6 +83,7 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const supabase = createClient();
+  const [open, setOpen] = useState(false);
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -88,14 +92,33 @@ export default function Sidebar() {
   };
 
   return (
-    <aside className="flex h-screen w-60 flex-col border-r border-border bg-card">
-      <div className="flex h-16 items-center gap-3 border-b border-border px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-          <Music className="h-4 w-4 text-primary" />
-        </div>
-        <span className="text-sm font-semibold text-foreground tracking-wide">
-          Wavr
-        </span>
+    <aside
+      className={cn(
+        "flex h-screen flex-col border-r border-border bg-card transition-all duration-300 overflow-hidden",
+        open ? "w-60" : "w-16"
+      )}
+    >
+      <div className="flex h-16 items-center border-b border-border px-2 gap-2">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+        >
+          {open ? (
+            <PanelLeftClose className="h-4 w-4" />
+          ) : (
+            <PanelLeftOpen className="h-4 w-4" />
+          )}
+        </button>
+        {open && (
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+              <Music className="h-4 w-4 text-primary" />
+            </div>
+            <span className="text-sm font-semibold text-foreground tracking-wide">
+              Wavr
+            </span>
+          </div>
+        )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-0.5">
@@ -109,8 +132,10 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
+              title={!open ? item.name : undefined}
               className={cn(
-                "group flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-all",
+                "group flex items-center rounded-lg py-2 text-sm transition-all",
+                open ? "gap-3 px-3" : "justify-center px-2",
                 isActive
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -122,7 +147,7 @@ export default function Sidebar() {
                   isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
                 )}
               />
-              {item.name}
+              {open && item.name}
             </Link>
           );
         })}
@@ -131,17 +156,25 @@ export default function Sidebar() {
       <div className="border-t border-border px-2 py-3 space-y-0.5">
         <Link
           href="/settings"
-          className="flex items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+          title={!open ? "Paramètres" : undefined}
+          className={cn(
+            "flex items-center gap-3 rounded-lg py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
+            open ? "px-3" : "justify-center px-2"
+          )}
         >
-          <Settings className="h-4 w-4" />
-          Paramètres
+          <Settings className="h-4 w-4 flex-shrink-0" />
+          {open && "Paramètres"}
         </Link>
         <button
           onClick={handleLogout}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all"
+          title={!open ? "Déconnexion" : undefined}
+          className={cn(
+            "flex w-full items-center gap-3 rounded-lg py-2 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all",
+            open ? "px-3" : "justify-center px-2"
+          )}
         >
-          <LogOut className="h-4 w-4" />
-          Déconnexion
+          <LogOut className="h-4 w-4 flex-shrink-0" />
+          {open && "Déconnexion"}
         </button>
       </div>
     </aside>

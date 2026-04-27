@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useMemo } from "react";
 import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import { Music2, MoreHorizontal, Loader2, Play, Plus, FolderOpen, X } from "lucide-react";
 import VaultUpload from "@/components/vault/VaultUpload";
 import VaultPlayer from "@/components/vault/VaultPlayer";
+import TrackDetail from "@/components/vault/TrackDetail";
 
 interface Track {
   id: string;
@@ -51,7 +52,8 @@ export default function VaultPage({ projectId }: VaultPageProps) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [activeTrack, setActiveTrack] = useState<Track | null>(null);
+  const [detailTrack, setDetailTrack] = useState<Track | null>(null);
   const [activeProject, setActiveProject] = useState<string | null>(projectId || null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
@@ -101,9 +103,24 @@ export default function VaultPage({ projectId }: VaultPageProps) {
     setCreatingProject(false);
   };
 
-  const filteredTracks = activeProject
-    ? tracks.filter((t) => t.project_id === activeProject)
-    : tracks;
+  const filteredTracks = useMemo(() => {
+    let list = activeProject
+      ? tracks.filter((t) => t.project_id === activeProject)
+      : tracks;
+
+    // Ne montrer que les tracks qui n'ont pas de parent (les versions "maitres")
+    // Ou la version la plus récente si on veut un comportement différent
+    return list.filter(t => !t.parent_id);
+  }, [tracks, activeProject]);
+
+  const deleteTrack = async (id: string) => {
+    const { error } = await supabase.from("tracks").delete().eq("id", id);
+    if (!error) {
+      setTracks((prev) => prev.filter((t) => t.id !== id));
+      setDetailTrack(null);
+      if (activeTrack?.id === id) setActiveTrack(null);
+    }
+  };
 
   const deleteProject = async (projectId: string) => {
     await supabase.from("tracks").update({ project_id: null }).eq("project_id", projectId);
@@ -266,15 +283,15 @@ export default function VaultPage({ projectId }: VaultPageProps) {
             draggable
             onDragStart={() => onDragStart(track.id)}
             onDragEnd={onDragEnd}
-            onClick={() => setSelectedTrack(track)}
+            onClick={() => setDetailTrack(track)}
             className={`flex items-center gap-4 px-4 py-3 hover:bg-accent/50 transition group border-b border-border last:border-0 cursor-pointer ${
               draggingTrackId === track.id ? "opacity-40 scale-[0.99]" : ""
             } ${
-              selectedTrack?.id === track.id ? "bg-primary/5 shadow-[inset_2px_0_0_hsl(var(--primary))]" : ""
+              detailTrack?.id === track.id ? "bg-primary/5 shadow-[inset_2px_0_0_hsl(var(--primary))]" : ""
             }`}
           >
             <div className="w-7 h-7 shrink-0 flex items-center justify-center rounded-md bg-secondary group-hover:bg-primary/10 transition">
-              {selectedTrack?.id === track.id
+              {activeTrack?.id === track.id
                 ? <Play className="h-3.5 w-3.5 text-primary" />
                 : <Music2 className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition" />
               }
@@ -295,22 +312,31 @@ export default function VaultPage({ projectId }: VaultPageProps) {
               {formatDuration(track.duration_seconds)}
             </div>
             <div className="w-6 shrink-0 flex justify-center">
-              <Link
-                href={`/vault/${track.id}`}
-                onClick={(e) => e.stopPropagation()}
+              <button
+                onClick={(e) => { e.stopPropagation(); setDetailTrack(track); }}
                 className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100 flex items-center"
               >
                 <MoreHorizontal className="h-4 w-4" />
-              </Link>
+              </button>
             </div>
           </div>
         ))}
       </div>
 
-      {selectedTrack && (
+      {detailTrack && (
+        <TrackDetail 
+          track={detailTrack} 
+          onClose={() => setDetailTrack(null)}
+          onPlay={(t) => setActiveTrack(t)}
+          onDelete={deleteTrack}
+          onVersionAdded={fetchData}
+        />
+      )}
+
+      {activeTrack && (
         <VaultPlayer
-          track={selectedTrack}
-          onClose={() => setSelectedTrack(null)}
+          track={activeTrack}
+          onClose={() => setActiveTrack(null)}
         />
       )}
     </div>

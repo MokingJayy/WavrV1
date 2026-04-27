@@ -72,11 +72,19 @@ export default function VaultUpload({ onUploaded, projectId }: VaultUploadProps)
 
       setProgress("Enregistrement dans la base...");
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("Session expirée. Reconnectez-vous.");
+        setUploading(false);
+        return;
+      }
+
       const { error: dbError } = await supabase.from("tracks").insert({
         title,
-        version: "demo",
+        version: "untitled",
         file_url: urlData.publicUrl,
         project_id: projectId ?? null,
+        uploaded_by: user.id,
         duration_seconds: durationSeconds > 0 ? Math.round(durationSeconds) : null,
       });
 

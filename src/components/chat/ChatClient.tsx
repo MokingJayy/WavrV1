@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Hash, Lock, Send, Plus, X } from "lucide-react";
+import { Hash, Lock, Send, Plus, X, Globe, Loader2, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Channel, Message, Profile } from "@/types";
@@ -52,65 +52,82 @@ export default function ChatClient({
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages);
   const [input, setInput] = useState("");
   const [sending, setSending] = useState(false);
-  const [showNewChannel, setShowNewChannel] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [channelType, setChannelType] = useState<"public" | "private" | "announcement">("public");
   const [newChannelName, setNewChannelName] = useState("");
+  const [newChannelDesc, setNewChannelDesc] = useState("");
+  const [selectedRoles, setSelectedRoles] = useState<string[]>([...ALL_ROLES]);
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
-  const newChannelInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const supabase = useRef(createClient()).current;
   const isFirstMount = useRef(true);
 
   const activeChannel = channelsList.find((ch) => ch.id === activeChannelId);
 
-  useEffect(() => {
-    if (showNewChannel) newChannelInputRef.current?.focus();
-  }, [showNewChannel]);
+  const ROLES_META = [
+    { value: "artist",   label: "Artiste" },
+    { value: "engineer", label: "Ingé son" },
+    { value: "manager",  label: "Manager" },
+    { value: "admin",    label: "Admin" },
+    { value: "guest",    label: "Invité" },
+  ];
+
+  const openModal = () => {
+    setChannelType("public");
+    setNewChannelName("");
+    setNewChannelDesc("");
+    setSelectedRoles([...ALL_ROLES]);
+    setChannelError(null);
+    setShowCreateModal(true);
+  };
+
+  const closeModal = () => { setShowCreateModal(false); setChannelError(null); };
+
+  const toggleRole = (role: string) => {
+    setSelectedRoles((prev) =>
+      prev.includes(role) ? prev.filter((r) => r !== role) : [...prev, role]
+    );
+  };
 
   const handleCreateChannel = async () => {
     const name = newChannelName.trim().toLowerCase().replace(/\s+/g, "-");
     if (!name || creatingChannel) return;
     setChannelError(null);
 
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setChannelError("Non connecté — reconnecte-toi.");
+    const roles = channelType === "private" ? selectedRoles : ALL_ROLES;
+    if (channelType === "private" && roles.length === 0) {
+      setChannelError("Sélectionne au moins un rôle.");
       return;
     }
 
-    setCreatingChannel(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setChannelError("Non connecté — reconnecte-toi."); return; }
 
+    setCreatingChannel(true);
     const { data, error } = await supabase
       .from("channels")
-      .insert({ name, allowed_roles: ALL_ROLES })
+      .insert({
+        name,
+        description: newChannelDesc.trim() || null,
+        allowed_roles: roles,
+        type: channelType === "announcement" ? "announcement" : "text",
+      })
       .select("*")
       .single();
 
     if (error) {
-      console.error("[ChatClient] channel insert error:", error);
-      setChannelError(
-        error.code === "23505"
-          ? `Le canal "${name}" existe déjà.`
-          : `[${error.code}] ${error.message}`
-      );
+      setChannelError(error.code === "23505" ? `"#${name}" existe déjà.` : `[${error.code}] ${error.message}`);
       setCreatingChannel(false);
       return;
     }
-
     if (data) {
       setChannelsList((prev) => [...prev, data as Channel]);
       setActiveChannelId((data as Channel).id);
       setMessages([]);
-      setNewChannelName("");
-      setShowNewChannel(false);
+      closeModal();
     }
-
     setCreatingChannel(false);
-  };
-
-  const handleNewChannelKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") handleCreateChannel();
-    if (e.key === "Escape") { setShowNewChannel(false); setNewChannelName(""); setChannelError(null); }
   };
 
   useEffect(() => {
@@ -221,11 +238,11 @@ export default function ChatClient({
             Canaux
           </p>
           <button
-            onClick={() => setShowNewChannel((v) => !v)}
+            onClick={openModal}
             className="flex h-5 w-5 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground transition"
             title="Nouveau canal"
           >
-            {showNewChannel ? <X className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+            <Plus className="h-3 w-3" />
           </button>
         </div>
         {channelsList.map((ch) => (
@@ -239,7 +256,9 @@ export default function ChatClient({
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
-            {isPublicChannel(ch) ? (
+            {ch.type === "announcement" ? (
+              <Megaphone className="h-3.5 w-3.5 flex-shrink-0" />
+            ) : isPublicChannel(ch) ? (
               <Hash className="h-3.5 w-3.5 flex-shrink-0" />
             ) : (
               <Lock className="h-3.5 w-3.5 flex-shrink-0" />
@@ -248,23 +267,143 @@ export default function ChatClient({
           </button>
         ))}
 
-        {showNewChannel && (
-          <div className="mt-1 px-1">
-            <input
-              ref={newChannelInputRef}
-              type="text"
-              value={newChannelName}
-              onChange={(e) => setNewChannelName(e.target.value)}
-              onKeyDown={handleNewChannelKey}
-              placeholder="nom-du-canal"
-              disabled={creatingChannel}
-              className="w-full rounded-lg border border-primary/40 bg-primary/5 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:opacity-50"
-            />
-            {channelError ? (
-              <p className="mt-1 px-1 text-[10px] text-destructive">{channelError}</p>
-            ) : (
-              <p className="mt-1 px-1 text-[10px] text-muted-foreground">Entrée pour créer · Échap pour annuler</p>
-            )}
+        {/* Create channel modal */}
+        {showCreateModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
+            <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl">
+              {/* Modal header */}
+              <div className="flex items-center justify-between border-b border-border px-5 py-4">
+                <div>
+                  <h3 className="text-base font-semibold text-foreground">Créer un canal</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">Configure ton nouveau canal de discussion</p>
+                </div>
+                <button onClick={closeModal} className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition">
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+
+              <div className="p-5 space-y-5">
+                {/* Channel type */}
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-foreground">Type de canal</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {([
+                      { value: "public",       icon: Globe,     label: "Canal public",   desc: "Accessible à tous" },
+                      { value: "announcement", icon: Megaphone, label: "Annonces",       desc: "Lecture seule (admins écrivent)" },
+                      { value: "private",      icon: Lock,      label: "Canal privé",   desc: "Accès par rôle" },
+                    ] as const).map(({ value, icon: Icon, label, desc }) => (
+                      <button
+                        key={value}
+                        type="button"
+                        onClick={() => {
+                          setChannelType(value);
+                          if (value === "public") setSelectedRoles([...ALL_ROLES]);
+                        }}
+                        className={cn(
+                          "flex items-start gap-3 rounded-xl border p-3 text-left transition-all",
+                          channelType === value
+                            ? "border-primary/50 bg-primary/10 ring-2 ring-primary/30"
+                            : "border-border bg-secondary/50 hover:bg-accent"
+                        )}
+                      >
+                        <div className={cn("flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-lg", channelType === value ? "bg-primary/20 text-primary" : "bg-muted text-muted-foreground")}>
+                          <Icon className="h-3.5 w-3.5" />
+                        </div>
+                        <div>
+                          <p className={cn("text-[11px] font-semibold", channelType === value ? "text-primary" : "text-foreground")}>{label}</p>
+                          <p className="text-[9px] text-muted-foreground mt-0.5 leading-tight">{desc}</p>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Channel name */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Nom du canal <span className="text-destructive">*</span></label>
+                  <div className="flex items-center rounded-lg border border-border bg-secondary overflow-hidden focus-within:ring-2 focus-within:ring-primary/50">
+                    <span className="px-3 text-muted-foreground">
+                      {channelType === "public" ? <Hash className="h-3.5 w-3.5" /> : channelType === "announcement" ? <Megaphone className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                    </span>
+                    <input
+                      autoFocus
+                      type="text"
+                      value={newChannelName}
+                      onChange={(e) => setNewChannelName(e.target.value.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-_]/g, ""))}
+                      onKeyDown={(e) => { if (e.key === "Enter") handleCreateChannel(); if (e.key === "Escape") closeModal(); }}
+                      placeholder="mon-canal"
+                      className="flex-1 bg-transparent py-2 pr-3 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
+                    />
+                  </div>
+                  <p className="text-[10px] text-muted-foreground">Minuscules, tirets et chiffres uniquement</p>
+                </div>
+
+                {/* Description */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-medium text-foreground">Description <span className="text-muted-foreground font-normal">(optionnel)</span></label>
+                  <input
+                    type="text"
+                    value={newChannelDesc}
+                    onChange={(e) => setNewChannelDesc(e.target.value)}
+                    placeholder="À quoi sert ce canal ?"
+                    className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                  />
+                </div>
+
+                {channelType === "announcement" && (
+                  <div className="flex items-start gap-2 rounded-lg border border-amber-500/20 bg-amber-500/5 px-3 py-2.5">
+                    <Megaphone className="h-3.5 w-3.5 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <p className="text-[11px] text-amber-400/80 leading-relaxed">
+                      Seuls les <strong className="text-amber-400">admins</strong> peuvent envoyer des messages dans ce canal. Les autres membres peuvent uniquement lire.
+                    </p>
+                  </div>
+                )}
+
+                {/* Roles (private only) */}
+                {channelType === "private" && (
+                  <div className="space-y-2">
+                    <label className="text-xs font-medium text-foreground">Rôles autorisés</label>
+                    <div className="flex flex-wrap gap-2">
+                      {ROLES_META.map(({ value, label }) => (
+                        <button
+                          key={value}
+                          type="button"
+                          onClick={() => toggleRole(value)}
+                          className={cn(
+                            "flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition",
+                            selectedRoles.includes(value)
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : "border-border bg-secondary text-muted-foreground hover:bg-accent"
+                          )}
+                        >
+                          {selectedRoles.includes(value) && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {channelError && (
+                  <p className="rounded-lg border border-destructive/20 bg-destructive/10 px-3 py-2 text-xs text-destructive">{channelError}</p>
+                )}
+
+                {/* Actions */}
+                <div className="flex gap-3 pt-1">
+                  <button onClick={closeModal} className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition">
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleCreateChannel}
+                    disabled={creatingChannel || !newChannelName.trim()}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    {creatingChannel && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                    Créer le canal
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -275,7 +414,9 @@ export default function ChatClient({
         <div className="flex items-center gap-2 border-b border-border px-4 py-3">
           {activeChannel ? (
             <>
-              {isPublicChannel(activeChannel) ? (
+              {activeChannel.type === "announcement" ? (
+                <Megaphone className="h-4 w-4 text-amber-400" />
+              ) : isPublicChannel(activeChannel) ? (
                 <Hash className="h-4 w-4 text-muted-foreground" />
               ) : (
                 <Lock className="h-4 w-4 text-muted-foreground" />
@@ -372,6 +513,14 @@ export default function ChatClient({
           <div ref={bottomRef} />
         </div>
 
+        {/* Announcement banner */}
+        {activeChannel?.type === "announcement" && currentUserProfile?.role !== "admin" && (
+          <div className="flex items-center gap-2 border-t border-amber-500/20 bg-amber-500/5 px-4 py-2.5">
+            <Megaphone className="h-3.5 w-3.5 text-amber-400 flex-shrink-0" />
+            <p className="text-xs text-amber-400/80">Canal d'annonces — seuls les <strong className="text-amber-400">admins</strong> peuvent écrire ici.</p>
+          </div>
+        )}
+
         {/* Input */}
         <div className="border-t border-border p-3">
           <div className="flex items-center gap-2 rounded-xl border border-border bg-secondary px-3 py-2">
@@ -385,12 +534,12 @@ export default function ChatClient({
                   ? `Message dans #${activeChannel.name}…`
                   : "Sélectionner un canal"
               }
-              disabled={!activeChannelId}
+              disabled={!activeChannelId || (activeChannel?.type === "announcement" && currentUserProfile?.role !== "admin")}
               className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50"
             />
             <button
               onClick={handleSend}
-              disabled={!input.trim() || sending || !activeChannelId}
+              disabled={!input.trim() || sending || !activeChannelId || (activeChannel?.type === "announcement" && currentUserProfile?.role !== "admin")}
               className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary hover:text-primary-foreground transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               <Send className="h-3.5 w-3.5" />

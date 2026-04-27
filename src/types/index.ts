@@ -50,6 +50,7 @@ export interface Channel {
   name: string;
   description?: string;
   allowed_roles: UserRole[];
+  type?: "text" | "announcement";
   created_at: string;
 }
 

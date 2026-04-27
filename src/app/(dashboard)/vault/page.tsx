@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
 import { Music2, MoreHorizontal, Loader2, Play, Plus, FolderOpen, X } from "lucide-react";
 import VaultUpload from "@/components/vault/VaultUpload";
 import VaultPlayer from "@/components/vault/VaultPlayer";
@@ -23,10 +24,12 @@ interface Project {
 }
 
 const versionColors: Record<string, string> = {
-  mixup: "bg-violet-500/10 text-violet-400",
-  untitled: "bg-zinc-500/10 text-zinc-400",
-  final: "bg-emerald-500/10 text-emerald-400",
-  master: "bg-amber-500/10 text-amber-400",
+  "demo": "bg-zinc-500/10 text-zinc-400",
+  "rough-mix": "bg-blue-500/10 text-blue-400",
+  "mixup": "bg-violet-500/10 text-violet-400",
+  "pre-master": "bg-orange-500/10 text-orange-400",
+  "final": "bg-emerald-500/10 text-emerald-400",
+  "master": "bg-amber-500/10 text-amber-400",
 };
 
 function formatDuration(seconds: number | null) {
@@ -238,9 +241,13 @@ export default function VaultPage() {
             <span className="text-xs text-muted-foreground">
               {formatDuration(track.duration_seconds)}
             </span>
-            <button className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100">
+            <Link
+              href={`/vault/${track.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100 flex items-center"
+            >
               <MoreHorizontal className="h-4 w-4" />
-            </button>
+            </Link>
           </div>
         ))}
       </div>

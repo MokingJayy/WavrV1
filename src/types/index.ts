@@ -62,6 +62,7 @@ export interface TimelineEvent {
   date: string;
   project_id?: string;
   created_by: string;
+  created_at: string;
 }
 
 export interface RoyaltySplit {

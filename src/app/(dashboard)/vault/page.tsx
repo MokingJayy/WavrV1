@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import { Music2, MoreHorizontal, Loader2, Play } from "lucide-react";
+import { Music2, MoreHorizontal, Loader2, Play, Plus, FolderOpen, X } from "lucide-react";
 import VaultUpload from "@/components/vault/VaultUpload";
 import VaultPlayer from "@/components/vault/VaultPlayer";
 
@@ -13,7 +13,13 @@ interface Track {
   bpm: number | null;
   duration_seconds: number | null;
   file_url: string;
+  project_id: string | null;
   created_at: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
 }
 
 const versionColors: Record<string, string> = {
@@ -36,31 +42,144 @@ function formatDate(iso: string) {
 
 export default function VaultPage() {
   const [tracks, setTracks] = useState<Track[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
+  const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [creatingProject, setCreatingProject] = useState(false);
+  const [newProjectName, setNewProjectName] = useState("");
+  const [draggingTrackId, setDraggingTrackId] = useState<string | null>(null);
+  const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
   const supabase = createClient();
 
-  const fetchTracks = useCallback(async () => {
-    const { data } = await supabase
-      .from("tracks")
-      .select("*")
-      .order("created_at", { ascending: false });
-    setTracks(data ?? []);
+  const fetchData = useCallback(async () => {
+    const [{ data: tracksData }, { data: projectsData }] = await Promise.all([
+      supabase.from("tracks").select("*").order("created_at", { ascending: false }),
+      supabase.from("projects").select("id, name").order("created_at", { ascending: false }),
+    ]);
+    setTracks(tracksData ?? []);
+    setProjects(projectsData ?? []);
     setLoading(false);
   }, [supabase]);
 
-  useEffect(() => {
-    fetchTracks();
-  }, [fetchTracks]);
+  useEffect(() => { fetchData(); }, [fetchData]);
+
+  const createProject = async () => {
+    if (!newProjectName.trim()) return;
+    const { data } = await supabase
+      .from("projects")
+      .insert({ name: newProjectName.trim() })
+      .select("id, name")
+      .single();
+    if (data) {
+      setProjects((prev) => [data, ...prev]);
+      setActiveProject(data.id);
+    }
+    setNewProjectName("");
+    setCreatingProject(false);
+  };
+
+  const filteredTracks = activeProject
+    ? tracks.filter((t) => t.project_id === activeProject)
+    : tracks;
+
+  const moveTrackToProject = async (trackId: string, projectId: string | null) => {
+    await supabase.from("tracks").update({ project_id: projectId }).eq("id", trackId);
+    setTracks((prev) =>
+      prev.map((t) => t.id === trackId ? { ...t, project_id: projectId } : t)
+    );
+  };
+
+  const onDragStart = (trackId: string) => setDraggingTrackId(trackId);
+  const onDragEnd = () => { setDraggingTrackId(null); setDragOverTarget(null); };
+  const onDragOver = (e: React.DragEvent, target: string) => { e.preventDefault(); setDragOverTarget(target); };
+  const onDragLeave = () => setDragOverTarget(null);
+  const onDrop = (e: React.DragEvent, projectId: string | null) => {
+    e.preventDefault();
+    if (draggingTrackId) moveTrackToProject(draggingTrackId, projectId);
+    setDraggingTrackId(null);
+    setDragOverTarget(null);
+  };
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-foreground">The Vault</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">Versions audio & lecteur Hi-Fi</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-semibold text-foreground">The Vault</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">Versions audio & lecteur Hi-Fi</p>
+        </div>
       </div>
 
-      <VaultUpload onUploaded={fetchTracks} />
+      <div className="flex items-center gap-2 flex-wrap">
+        <button
+          onClick={() => setActiveProject(null)}
+          onDragOver={(e) => onDragOver(e, "all")}
+          onDragLeave={onDragLeave}
+          onDrop={(e) => onDrop(e, null)}
+          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+            dragOverTarget === "all"
+              ? "bg-primary/20 text-primary border border-primary scale-105"
+              : activeProject === null
+              ? "bg-primary/10 text-primary border border-primary/20"
+              : "bg-secondary text-muted-foreground hover:text-foreground border border-border"
+          }`}
+        >
+          Tous ({tracks.length})
+        </button>
+
+        {projects.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => setActiveProject(p.id)}
+            onDragOver={(e) => onDragOver(e, p.id)}
+            onDragLeave={onDragLeave}
+            onDrop={(e) => onDrop(e, p.id)}
+            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              dragOverTarget === p.id
+                ? "bg-primary/20 text-primary border border-primary scale-105"
+                : activeProject === p.id
+                ? "bg-primary/10 text-primary border border-primary/20"
+                : "bg-secondary text-muted-foreground hover:text-foreground border border-border"
+            }`}
+          >
+            <FolderOpen className="h-3.5 w-3.5" />
+            {p.name}
+            <span className="text-xs opacity-60">
+              ({tracks.filter((t) => t.project_id === p.id).length})
+            </span>
+          </button>
+        ))}
+
+        {creatingProject ? (
+          <div className="flex items-center gap-2">
+            <input
+              autoFocus
+              type="text"
+              value={newProjectName}
+              onChange={(e) => setNewProjectName(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter") createProject(); if (e.key === "Escape") setCreatingProject(false); }}
+              placeholder="Nom du projet..."
+              className="rounded-lg border border-primary/30 bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+            />
+            <button onClick={createProject} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition">
+              Créer
+            </button>
+            <button onClick={() => setCreatingProject(false)} className="text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => setCreatingProject(true)}
+            className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground hover:border-primary/30 hover:text-primary transition"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Nouveau projet
+          </button>
+        )}
+      </div>
+
+      <VaultUpload onUploaded={fetchData} projectId={activeProject} />
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
         <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground border-b border-border">
@@ -79,17 +198,24 @@ export default function VaultPage() {
           </div>
         )}
 
-        {!loading && tracks.length === 0 && (
+        {!loading && filteredTracks.length === 0 && (
           <div className="py-10 text-center text-sm text-muted-foreground">
-            Aucun track pour l'instant — uploade le premier ci-dessus.
+            {activeProject
+              ? "Aucun son dans ce projet — uploade ci-dessus."
+              : "Aucun track pour l'instant — uploade le premier ci-dessus."}
           </div>
         )}
 
-        {tracks.map((track) => (
+        {filteredTracks.map((track) => (
           <div
             key={track.id}
+            draggable
+            onDragStart={() => onDragStart(track.id)}
+            onDragEnd={onDragEnd}
             onClick={() => setSelectedTrack(track)}
             className={`grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-4 px-4 py-3 items-center hover:bg-accent/50 transition group border-b border-border last:border-0 cursor-pointer ${
+              draggingTrackId === track.id ? "opacity-40 scale-[0.99]" : ""
+            } ${
               selectedTrack?.id === track.id ? "bg-primary/5 border-l-2 border-l-primary" : ""
             }`}
           >
@@ -118,6 +244,7 @@ export default function VaultPage() {
           </div>
         ))}
       </div>
+
       {selectedTrack && (
         <VaultPlayer
           track={selectedTrack}

@@ -12,9 +12,10 @@ interface UploadedTrack {
 
 interface VaultUploadProps {
   onUploaded?: (track: UploadedTrack) => void;
+  projectId?: string | null;
 }
 
-export default function VaultUpload({ onUploaded }: VaultUploadProps) {
+export default function VaultUpload({ onUploaded, projectId }: VaultUploadProps) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export default function VaultUpload({ onUploaded }: VaultUploadProps) {
         title,
         version: "untitled",
         file_url: urlData.publicUrl,
+        project_id: projectId ?? null,
       });
 
       if (dbError) {

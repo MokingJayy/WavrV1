@@ -17,6 +17,7 @@ import {
   Settings,
   LogOut,
   Music,
+  HardDrive,
 } from "lucide-react";
 
 const navigation = [
@@ -60,6 +61,12 @@ const navigation = [
     href: "/gallery",
     icon: Image,
     description: "Assets & covers",
+  },
+  {
+    name: "Sessions DAW",
+    href: "/sessions",
+    icon: HardDrive,
+    description: "Ableton · FL · Logic · PT",
   },
   {
     name: "Stage Prep",

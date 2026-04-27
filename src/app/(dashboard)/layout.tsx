@@ -10,6 +10,7 @@ export default async function DashboardLayout({
 }) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+
   const { data: profileData } = user
     ? await supabase.from("profiles").select("full_name, role, avatar_url").eq("id", user.id).single()
     : { data: null };

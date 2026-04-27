@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Hash, Lock, Send, Plus, X, Globe, Loader2, Megaphone } from "lucide-react";
+import { Hash, Lock, Send, Plus, X, Globe, Loader2, Megaphone, Trash2, AlertTriangle } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import type { Channel, Message, Profile } from "@/types";
@@ -59,6 +59,8 @@ export default function ChatClient({
   const [selectedRoles, setSelectedRoles] = useState<string[]>([...ALL_ROLES]);
   const [creatingChannel, setCreatingChannel] = useState(false);
   const [channelError, setChannelError] = useState<string | null>(null);
+  const [deleteChannelId, setDeleteChannelId] = useState<string | null>(null);
+  const [deletingChannel, setDeletingChannel] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const supabase = useRef(createClient()).current;
   const isFirstMount = useRef(true);
@@ -83,6 +85,20 @@ export default function ChatClient({
   };
 
   const closeModal = () => { setShowCreateModal(false); setChannelError(null); };
+
+  const handleDeleteChannel = async () => {
+    if (!deleteChannelId || deletingChannel) return;
+    setDeletingChannel(true);
+    await supabase.from("channels").delete().eq("id", deleteChannelId);
+    setChannelsList((prev) => prev.filter((ch) => ch.id !== deleteChannelId));
+    if (activeChannelId === deleteChannelId) {
+      const remaining = channelsList.filter((ch) => ch.id !== deleteChannelId);
+      setActiveChannelId(remaining[0]?.id ?? null);
+      setMessages([]);
+    }
+    setDeleteChannelId(null);
+    setDeletingChannel(false);
+  };
 
   const toggleRole = (role: string) => {
     setSelectedRoles((prev) =>
@@ -246,26 +262,76 @@ export default function ChatClient({
           </button>
         </div>
         {channelsList.map((ch) => (
-          <button
+          <div
             key={ch.id}
-            onClick={() => setActiveChannelId(ch.id)}
             className={cn(
-              "flex w-full items-center gap-2 rounded-lg px-2 py-1.5 text-sm transition",
-              ch.id === activeChannelId
-                ? "bg-primary/10 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
+              "group flex w-full items-center gap-1 rounded-lg transition",
+              ch.id === activeChannelId ? "bg-primary/10" : "hover:bg-accent"
             )}
           >
-            {ch.type === "announcement" ? (
-              <Megaphone className="h-3.5 w-3.5 flex-shrink-0" />
-            ) : isPublicChannel(ch) ? (
-              <Hash className="h-3.5 w-3.5 flex-shrink-0" />
-            ) : (
-              <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+            <button
+              onClick={() => setActiveChannelId(ch.id)}
+              className={cn(
+                "flex flex-1 min-w-0 items-center gap-2 rounded-lg px-2 py-1.5 text-sm",
+                ch.id === activeChannelId ? "text-primary" : "text-muted-foreground group-hover:text-foreground"
+              )}
+            >
+              {ch.type === "announcement" ? (
+                <Megaphone className="h-3.5 w-3.5 flex-shrink-0" />
+              ) : isPublicChannel(ch) ? (
+                <Hash className="h-3.5 w-3.5 flex-shrink-0" />
+              ) : (
+                <Lock className="h-3.5 w-3.5 flex-shrink-0" />
+              )}
+              <span className="flex-1 text-left truncate">{ch.name}</span>
+            </button>
+            {currentUserProfile?.role === "admin" && (
+              <button
+                onClick={(e) => { e.stopPropagation(); setDeleteChannelId(ch.id); }}
+                className="mr-1 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded opacity-0 group-hover:opacity-100 text-muted-foreground hover:bg-destructive/20 hover:text-destructive transition"
+                title="Supprimer le canal"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
             )}
-            <span className="flex-1 text-left truncate">{ch.name}</span>
-          </button>
+          </div>
         ))}
+
+        {/* Delete channel confirm modal */}
+        {deleteChannelId && (() => {
+          const ch = channelsList.find((c) => c.id === deleteChannelId);
+          return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={(e) => { if (e.target === e.currentTarget) setDeleteChannelId(null); }}>
+              <div className="w-full max-w-sm rounded-2xl border border-destructive/30 bg-card shadow-2xl">
+                <div className="flex items-center gap-2 border-b border-border px-5 py-4">
+                  <AlertTriangle className="h-4 w-4 text-destructive" />
+                  <h3 className="text-sm font-semibold text-foreground">Supprimer le canal</h3>
+                </div>
+                <div className="p-5 space-y-4">
+                  <p className="text-sm text-muted-foreground">
+                    Supprimer <span className="font-mono font-semibold text-foreground">#{ch?.name}</span> ? Tous les messages seront perdus.
+                  </p>
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setDeleteChannelId(null)}
+                      className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition"
+                    >
+                      Annuler
+                    </button>
+                    <button
+                      onClick={handleDeleteChannel}
+                      disabled={deletingChannel}
+                      className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 transition"
+                    >
+                      {deletingChannel && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Create channel modal */}
         {showCreateModal && (

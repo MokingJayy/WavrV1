@@ -4,7 +4,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const DASHBOARD_PATHS = [
   "/dashboard", "/vault", "/feedback", "/chat",
   "/timeline", "/royalties", "/gallery", "/stage",
-  "/settings", "/sessions",
+  "/settings", "/sessions", "/projects",
 ];
 
 function isDashboardPath(pathname: string) {
@@ -38,11 +38,14 @@ export async function middleware(request: NextRequest) {
 
   const isLogin = pathname === "/login";
   const isPending = pathname === "/pending";
+  const isJoin = pathname.startsWith("/join");
   const isDashboard = isDashboardPath(pathname);
 
   if (!user) {
-    if (isDashboard || isPending) {
-      return NextResponse.redirect(new URL("/login", request.url));
+    if (isDashboard || isPending || isJoin) {
+      const url = new URL("/login", request.url);
+      if (isJoin) url.searchParams.set("next", pathname);
+      return NextResponse.redirect(url);
     }
     return response;
   }
@@ -65,6 +68,10 @@ export async function middleware(request: NextRequest) {
 
   if (isPending && approved) {
     return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  if (isJoin) {
+    return response;
   }
 
   return response;

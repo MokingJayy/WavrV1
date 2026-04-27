@@ -21,6 +21,7 @@ import {
   HardDrive,
   PanelLeftOpen,
   PanelLeftClose,
+  FolderOpen,
 } from "lucide-react";
 
 const navigation = [
@@ -28,6 +29,12 @@ const navigation = [
     name: "Dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
+  },
+  {
+    name: "Projets",
+    href: "/projects",
+    icon: FolderOpen,
+    description: "Gestion des projets",
   },
   {
     name: "The Vault",

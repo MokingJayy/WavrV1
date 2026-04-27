@@ -66,7 +66,85 @@ create table public.projects (
 
 
 -- ============================================================
--- 4. TRACKS — The Vault
+-- 4. PROJECT MEMBERS & INVITATIONS
+-- ============================================================
+create table public.project_members (
+  id uuid primary key default uuid_generate_v4(),
+  project_id uuid references public.projects(id) on delete cascade not null,
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  role text not null default 'member' check (role in ('owner', 'admin', 'member', 'viewer')),
+  joined_at timestamptz not null default now(),
+  unique(project_id, user_id)
+);
+
+create table public.project_invitations (
+  id uuid primary key default uuid_generate_v4(),
+  project_id uuid references public.projects(id) on delete cascade not null,
+  token uuid not null unique default uuid_generate_v4(),
+  created_by uuid references public.profiles(id) on delete set null,
+  role text not null default 'member' check (role in ('admin', 'member', 'viewer')),
+  max_uses integer not null default 100,
+  use_count integer not null default 0,
+  expires_at timestamptz not null default now() + interval '30 days',
+  created_at timestamptz not null default now()
+);
+
+-- Ajoute automatiquement le créateur comme owner
+create or replace function public.handle_new_project()
+returns trigger as $$
+begin
+  insert into public.project_members (project_id, user_id, role)
+  values (new.id, new.created_by, 'owner');
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_project_created
+  after insert on public.projects
+  for each row execute procedure public.handle_new_project();
+
+-- Rejoindre un projet via token d'invitation
+create or replace function public.use_project_invitation(p_token uuid)
+returns json as $$
+declare
+  inv record;
+begin
+  select pi.*, p.name as project_name
+  into inv
+  from public.project_invitations pi
+  join public.projects p on p.id = pi.project_id
+  where pi.token = p_token;
+
+  if not found then
+    return json_build_object('error', 'Invitation introuvable');
+  end if;
+  if inv.expires_at < now() then
+    return json_build_object('error', 'Invitation expirée');
+  end if;
+  if inv.use_count >= inv.max_uses then
+    return json_build_object('error', 'Invitation épuisée');
+  end if;
+  if exists (
+    select 1 from public.project_members
+    where project_id = inv.project_id and user_id = auth.uid()
+  ) then
+    return json_build_object('project_id', inv.project_id::text, 'already_member', true);
+  end if;
+
+  insert into public.project_members (project_id, user_id, role)
+  values (inv.project_id, auth.uid(), inv.role);
+
+  update public.project_invitations
+  set use_count = use_count + 1
+  where id = inv.id;
+
+  return json_build_object('project_id', inv.project_id::text, 'success', true);
+end;
+$$ language plpgsql security definer;
+
+
+-- ============================================================
+-- 5. TRACKS — The Vault
 -- ============================================================
 create table public.tracks (
   id uuid primary key default uuid_generate_v4(),
@@ -269,6 +347,8 @@ on conflict do nothing;
 -- ============================================================
 alter table public.profiles enable row level security;
 alter table public.notifications enable row level security;
+alter table public.project_members enable row level security;
+alter table public.project_invitations enable row level security;
 alter table public.projects enable row level security;
 alter table public.tracks enable row level security;
 alter table public.cues enable row level security;
@@ -282,6 +362,21 @@ alter table public.stage_setlists enable row level security;
 -- Profiles : lecture ouverte aux authentifiés (nécessaire pour vérifier is_approved)
 create policy "Profiles visibles" on public.profiles for select using (auth.role() = 'authenticated');
 create policy "Profil modifiable par son owner" on public.profiles for update using (auth.uid() = id);
+
+-- Project members : membres peuvent se voir entre eux
+create policy "Lecture members" on public.project_members for select using (
+  exists (select 1 from public.project_members pm where pm.project_id = project_id and pm.user_id = auth.uid())
+);
+create policy "Rejoindre projet" on public.project_members for insert with check (auth.role() = 'authenticated');
+
+-- Project invitations : membres peuvent lire et créer
+create policy "Lecture invitations" on public.project_invitations for select using (auth.role() = 'authenticated');
+create policy "Créer invitation" on public.project_invitations for insert with check (
+  exists (select 1 from public.project_members where project_id = project_id and user_id = auth.uid() and role in ('owner', 'admin'))
+);
+create policy "Supprimer invitation" on public.project_invitations for delete using (
+  exists (select 1 from public.project_members where project_id = project_id and user_id = auth.uid() and role in ('owner', 'admin'))
+);
 
 -- Notifications : chaque utilisateur voit et gère les siennes
 create policy "Lecture notifs" on public.notifications for select using (auth.uid() = user_id);

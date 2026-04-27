@@ -102,3 +102,26 @@ export interface Project {
   created_by: string;
   created_at: string;
 }
+
+export type ProjectMemberRole = "owner" | "admin" | "member" | "viewer";
+
+export interface ProjectMember {
+  id: string;
+  project_id: string;
+  user_id: string;
+  role: ProjectMemberRole;
+  joined_at: string;
+  profile?: Pick<Profile, "id" | "full_name" | "avatar_url" | "role" | "email">;
+}
+
+export interface ProjectInvitation {
+  id: string;
+  project_id: string;
+  token: string;
+  created_by: string;
+  role: "admin" | "member" | "viewer";
+  max_uses: number;
+  use_count: number;
+  expires_at: string;
+  created_at: string;
+}

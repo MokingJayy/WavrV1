@@ -17,6 +17,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
   "/gallery": { title: "The Gallery", description: "Assets graphiques & covers" },
   "/stage": { title: "Stage Prep", description: "BPM & fiches techniques live" },
   "/settings": { title: "Paramètres", description: "Configuration du compte" },
+  "/projects": { title: "Projets", description: "Gestion et collaboration" },
 };
 
 function getInitials(name: string): string {

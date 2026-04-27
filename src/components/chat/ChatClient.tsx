@@ -55,6 +55,7 @@ export default function ChatClient({
   const [showNewChannel, setShowNewChannel] = useState(false);
   const [newChannelName, setNewChannelName] = useState("");
   const [creatingChannel, setCreatingChannel] = useState(false);
+  const [channelError, setChannelError] = useState<string | null>(null);
   const newChannelInputRef = useRef<HTMLInputElement>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const supabase = useRef(createClient()).current;
@@ -69,6 +70,14 @@ export default function ChatClient({
   const handleCreateChannel = async () => {
     const name = newChannelName.trim().toLowerCase().replace(/\s+/g, "-");
     if (!name || creatingChannel) return;
+    setChannelError(null);
+
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      setChannelError("Non connecté — reconnecte-toi.");
+      return;
+    }
+
     setCreatingChannel(true);
 
     const { data, error } = await supabase
@@ -77,20 +86,31 @@ export default function ChatClient({
       .select("*")
       .single();
 
-    if (data && !error) {
+    if (error) {
+      console.error("[ChatClient] channel insert error:", error);
+      setChannelError(
+        error.code === "23505"
+          ? `Le canal "${name}" existe déjà.`
+          : `[${error.code}] ${error.message}`
+      );
+      setCreatingChannel(false);
+      return;
+    }
+
+    if (data) {
       setChannelsList((prev) => [...prev, data as Channel]);
       setActiveChannelId((data as Channel).id);
       setMessages([]);
+      setNewChannelName("");
+      setShowNewChannel(false);
     }
 
-    setNewChannelName("");
-    setShowNewChannel(false);
     setCreatingChannel(false);
   };
 
   const handleNewChannelKey = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter") handleCreateChannel();
-    if (e.key === "Escape") { setShowNewChannel(false); setNewChannelName(""); }
+    if (e.key === "Escape") { setShowNewChannel(false); setNewChannelName(""); setChannelError(null); }
   };
 
   useEffect(() => {
@@ -240,7 +260,11 @@ export default function ChatClient({
               disabled={creatingChannel}
               className="w-full rounded-lg border border-primary/40 bg-primary/5 px-2 py-1.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:opacity-50"
             />
-            <p className="mt-1 px-1 text-[10px] text-muted-foreground">Entrée pour créer · Échap pour annuler</p>
+            {channelError ? (
+              <p className="mt-1 px-1 text-[10px] text-destructive">{channelError}</p>
+            ) : (
+              <p className="mt-1 px-1 text-[10px] text-muted-foreground">Entrée pour créer · Échap pour annuler</p>
+            )}
           </div>
         )}
       </div>

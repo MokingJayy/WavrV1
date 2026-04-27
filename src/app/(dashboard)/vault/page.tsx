@@ -43,12 +43,16 @@ function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
 }
 
-export default function VaultPage() {
+interface VaultPageProps {
+  projectId?: string;
+}
+
+export default function VaultPage({ projectId }: VaultPageProps) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
-  const [activeProject, setActiveProject] = useState<string | null>(null);
+  const [activeProject, setActiveProject] = useState<string | null>(projectId || null);
   const [creatingProject, setCreatingProject] = useState(false);
   const [newProjectName, setNewProjectName] = useState("");
   const [draggingTrackId, setDraggingTrackId] = useState<string | null>(null);
@@ -57,16 +61,30 @@ export default function VaultPage() {
   const supabase = createClient();
 
   const fetchData = useCallback(async () => {
+    setLoading(true);
+    const query = supabase.from("tracks").select("*").order("created_at", { ascending: false });
+    
+    if (projectId) {
+      query.eq("project_id", projectId);
+    }
+
     const [{ data: tracksData }, { data: projectsData }] = await Promise.all([
-      supabase.from("tracks").select("*").order("created_at", { ascending: false }),
-      supabase.from("projects").select("id, name").order("created_at", { ascending: false }),
+      query,
+      projectId ? { data: [] } : supabase.from("projects").select("id, name").order("created_at", { ascending: false }),
     ]);
+
     setTracks(tracksData ?? []);
-    setProjects(projectsData ?? []);
+    if (!projectId) {
+      setProjects(projectsData ?? []);
+    }
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, projectId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (projectId) setActiveProject(projectId);
+  }, [projectId]);
 
   const createProject = async () => {
     if (!newProjectName.trim()) return;

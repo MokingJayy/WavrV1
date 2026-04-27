@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import {
   Users, Link2, Copy, Check, Plus, Trash2, ArrowLeft,
-  Clock, Shield, Eye, Crown, Loader2, RefreshCw,
+  Clock, Shield, Eye, Crown, Loader2, AlertTriangle, X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Project, ProjectMember, ProjectInvitation, ProjectMemberRole } from "@/types";
@@ -66,6 +66,9 @@ export default function ProjectDetailClient({
 
   const [tab, setTab] = useState<Tab>("members");
   const [members, setMembers] = useState(initialMembers);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deleteInput, setDeleteInput] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!initialMembers.length) return;
@@ -158,8 +161,74 @@ export default function ProjectDetailClient({
               </span>
             </div>
           </div>
+          {myRole === "owner" && (
+            <button
+              onClick={() => setShowDeleteModal(true)}
+              className="flex items-center gap-1.5 rounded-lg border border-destructive/30 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10 transition flex-shrink-0"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Supprimer
+            </button>
+          )}
         </div>
       </div>
+
+      {/* Delete confirmation modal */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-destructive/30 bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="h-4 w-4 text-destructive" />
+                <h3 className="text-sm font-semibold text-foreground">Supprimer le projet</h3>
+              </div>
+              <button
+                onClick={() => { setShowDeleteModal(false); setDeleteInput(""); }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <p className="text-sm text-muted-foreground">
+                Cette action est <span className="font-semibold text-destructive">irréversible</span>. Tous les membres, invitations et données liées seront supprimés.
+              </p>
+              <div className="space-y-1.5">
+                <label className="text-xs text-muted-foreground">
+                  Tape <span className="font-mono font-semibold text-foreground">{project.name}</span> pour confirmer :
+                </label>
+                <input
+                  type="text"
+                  value={deleteInput}
+                  onChange={(e) => setDeleteInput(e.target.value)}
+                  placeholder={project.name}
+                  className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-destructive/40 transition"
+                />
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShowDeleteModal(false); setDeleteInput(""); }}
+                  className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  disabled={deleteInput !== project.name || deleting}
+                  onClick={async () => {
+                    setDeleting(true);
+                    await supabase.from("projects").delete().eq("id", project.id);
+                    router.push("/projects");
+                  }}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                >
+                  {deleting && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+                  Supprimer définitivement
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl border border-border bg-card p-1">
@@ -234,30 +303,42 @@ export default function ProjectDetailClient({
           {isOwnerOrAdmin && (
             <div className="rounded-xl border border-border bg-card px-5 py-5 space-y-4">
               <h3 className="text-sm font-semibold text-foreground">Générer un lien d'invitation</h3>
-              <div className="flex items-center gap-3">
-                <div className="flex-1">
-                  <label className="text-xs text-muted-foreground mb-1.5 block">Rôle attribué</label>
-                  <select
-                    value={inviteRole}
-                    onChange={(e) => setInviteRole(e.target.value as typeof inviteRole)}
-                    className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
-                  >
-                    <option value="admin">Admin</option>
-                    <option value="member">Membre</option>
-                    <option value="viewer">Lecteur</option>
-                  </select>
-                </div>
-                <div className="flex-shrink-0 mt-5">
-                  <button
-                    onClick={generateInvitation}
-                    disabled={generating}
-                    className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
-                  >
-                    {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
-                    Générer
-                  </button>
+              <div className="space-y-3">
+                <label className="text-xs text-muted-foreground">Rôle attribué</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([ 
+                    { value: "admin",  label: "Admin",   icon: Shield, desc: "Gère le projet",   color: "text-orange-400", bg: "bg-orange-500/10 border-orange-500/30" },
+                    { value: "member", label: "Membre",  icon: Users,  desc: "Contribue",        color: "text-blue-400",   bg: "bg-blue-500/10 border-blue-500/30" },
+                    { value: "viewer", label: "Lecteur", icon: Eye,    desc: "Lecture seule",    color: "text-muted-foreground", bg: "bg-muted border-border" },
+                  ] as const).map(({ value, label, icon: Icon, desc, color, bg }) => (
+                    <button
+                      key={value}
+                      type="button"
+                      onClick={() => setInviteRole(value)}
+                      className={cn(
+                        "flex flex-col items-center gap-1.5 rounded-xl border p-3 text-center transition-all",
+                        inviteRole === value
+                          ? `${bg} ring-2 ring-primary/40`
+                          : "border-border bg-secondary/50 hover:bg-accent"
+                      )}
+                    >
+                      <Icon className={cn("h-4 w-4", inviteRole === value ? color : "text-muted-foreground")} />
+                      <span className={cn("text-xs font-semibold", inviteRole === value ? color : "text-foreground")}>
+                        {label}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground">{desc}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
+              <button
+                onClick={generateInvitation}
+                disabled={generating}
+                className="flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
+              >
+                {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Générer le lien d'invitation
+              </button>
               <p className="text-xs text-muted-foreground">
                 Le lien est valable 30 jours et peut être utilisé jusqu'à 100 fois.
               </p>

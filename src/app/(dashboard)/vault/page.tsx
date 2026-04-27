@@ -53,6 +53,7 @@ export default function VaultPage() {
   const [newProjectName, setNewProjectName] = useState("");
   const [draggingTrackId, setDraggingTrackId] = useState<string | null>(null);
   const [dragOverTarget, setDragOverTarget] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const supabase = createClient();
 
   const fetchData = useCallback(async () => {
@@ -85,6 +86,15 @@ export default function VaultPage() {
   const filteredTracks = activeProject
     ? tracks.filter((t) => t.project_id === activeProject)
     : tracks;
+
+  const deleteProject = async (projectId: string) => {
+    await supabase.from("tracks").update({ project_id: null }).eq("project_id", projectId);
+    await supabase.from("projects").delete().eq("id", projectId);
+    setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    setTracks((prev) => prev.map((t) => t.project_id === projectId ? { ...t, project_id: null } : t));
+    if (activeProject === projectId) setActiveProject(null);
+    setConfirmDeleteId(null);
+  };
 
   const moveTrackToProject = async (trackId: string, projectId: string | null) => {
     await supabase.from("tracks").update({ project_id: projectId }).eq("id", trackId);
@@ -131,26 +141,49 @@ export default function VaultPage() {
         </button>
 
         {projects.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => setActiveProject(p.id)}
-            onDragOver={(e) => onDragOver(e, p.id)}
-            onDragLeave={onDragLeave}
-            onDrop={(e) => onDrop(e, p.id)}
-            className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
-              dragOverTarget === p.id
-                ? "bg-primary/20 text-primary border border-primary scale-105"
-                : activeProject === p.id
-                ? "bg-primary/10 text-primary border border-primary/20"
-                : "bg-secondary text-muted-foreground hover:text-foreground border border-border"
-            }`}
-          >
-            <FolderOpen className="h-3.5 w-3.5" />
-            {p.name}
-            <span className="text-xs opacity-60">
-              ({tracks.filter((t) => t.project_id === p.id).length})
-            </span>
-          </button>
+          confirmDeleteId === p.id ? (
+            <div key={p.id} className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-sm">
+              <span className="text-destructive text-xs font-medium">Supprimer &quot;{p.name}&quot; ?</span>
+              <button
+                onClick={() => deleteProject(p.id)}
+                className="rounded px-1.5 py-0.5 text-xs font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition"
+              >
+                Oui
+              </button>
+              <button
+                onClick={() => setConfirmDeleteId(null)}
+                className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground transition"
+              >
+                Non
+              </button>
+            </div>
+          ) : (
+            <div
+              key={p.id}
+              className={`group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+                dragOverTarget === p.id
+                  ? "bg-primary/20 text-primary border border-primary scale-105"
+                  : activeProject === p.id
+                  ? "bg-primary/10 text-primary border border-primary/20"
+                  : "bg-secondary text-muted-foreground hover:text-foreground border border-border"
+              }`}
+              onDragOver={(e) => onDragOver(e, p.id)}
+              onDragLeave={onDragLeave}
+              onDrop={(e) => onDrop(e, p.id)}
+            >
+              <button className="flex items-center gap-1.5" onClick={() => setActiveProject(p.id)}>
+                <FolderOpen className="h-3.5 w-3.5" />
+                {p.name}
+                <span className="text-xs opacity-60">({tracks.filter((t) => t.project_id === p.id).length})</span>
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(p.id); }}
+                className="ml-0.5 opacity-0 group-hover:opacity-100 rounded hover:text-destructive transition"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )
         ))}
 
         {creatingProject ? (

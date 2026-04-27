@@ -193,7 +193,8 @@ create table public.stage_setlists (
 insert into storage.buckets (id, name, public) values
   ('audio', 'audio', false),
   ('covers', 'covers', true),
-  ('documents', 'documents', false)
+  ('documents', 'documents', false),
+  ('avatars', 'avatars', true)
 on conflict do nothing;
 
 
@@ -260,6 +261,10 @@ create policy "Lecture stage" on public.stage_setlists for select using (public.
 create policy "Écriture stage" on public.stage_setlists for insert with check (public.is_approved_member());
 
 -- Storage : réservé aux membres approuvés
+create policy "Upload avatar" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
+create policy "Update avatar" on storage.objects for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
+create policy "Lecture avatars publique" on storage.objects for select using (bucket_id = 'avatars');
+
 create policy "Upload audio" on storage.objects for insert with check (bucket_id = 'audio' and public.is_approved_member());
 create policy "Lecture audio" on storage.objects for select using (bucket_id = 'audio' and public.is_approved_member());
 create policy "Upload covers" on storage.objects for insert with check (bucket_id = 'covers' and public.is_approved_member());

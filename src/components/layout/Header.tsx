@@ -17,7 +17,7 @@ const pageTitles: Record<string, { title: string; description: string }> = {
 
 export default function Header() {
   const pathname = usePathname();
-  const page = pageTitles[pathname] ?? { title: "Projet Secret", description: "" };
+  const page = pageTitles[pathname] ?? { title: "Wavr", description: "" };
 
   return (
     <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">

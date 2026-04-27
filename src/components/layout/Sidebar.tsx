@@ -87,7 +87,7 @@ export default function Sidebar() {
           <Music className="h-4 w-4 text-primary" />
         </div>
         <span className="text-sm font-semibold text-foreground tracking-wide">
-          Projet Secret
+          Wavr
         </span>
       </div>
 

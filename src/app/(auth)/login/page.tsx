@@ -38,10 +38,10 @@ export default function LoginPage() {
           </div>
           <div className="text-center">
             <h1 className="text-2xl font-semibold tracking-tight text-foreground">
-              Projet Secret
+              Wavr
             </h1>
             <p className="text-sm text-muted-foreground mt-1">
-              Studio Platform — Accès réservé
+              Wavr Studio — Accès réservé
             </p>
           </div>
         </div>

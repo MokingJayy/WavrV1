@@ -5,7 +5,7 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 
 export const metadata: Metadata = {
-  title: "Projet Secret | Studio Platform",
+  title: "Wavr | Studio Platform",
   description: "Plateforme de gestion musicale pour artistes et ingénieurs du son",
 };
 

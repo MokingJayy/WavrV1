@@ -127,7 +127,59 @@ insert into public.channels (name, description, allowed_roles) values
 
 
 -- ============================================================
--- 7. TIMELINE EVENTS
+-- 7. NOTIFICATIONS
+-- ============================================================
+create table public.notifications (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references public.profiles(id) on delete cascade not null,
+  type text not null default 'info' check (type in ('message', 'channel', 'system', 'info')),
+  title text not null,
+  body text,
+  link text,
+  read boolean not null default false,
+  created_at timestamptz not null default now()
+);
+
+create index notifications_user_id_idx on public.notifications(user_id);
+create index notifications_read_idx on public.notifications(user_id, read);
+
+-- Trigger : notifie les membres du canal à chaque nouveau message
+create or replace function public.notify_on_new_message()
+returns trigger as $$
+declare
+  ch public.channels%rowtype;
+  prof public.profiles%rowtype;
+  author_name text;
+begin
+  select * into ch from public.channels where id = new.channel_id;
+  select full_name into author_name from public.profiles where id = new.author_id;
+
+  for prof in
+    select * from public.profiles
+    where role = any(ch.allowed_roles::text[])
+      and id != new.author_id
+      and is_approved = true
+  loop
+    insert into public.notifications (user_id, type, title, body, link)
+    values (
+      prof.id,
+      'message',
+      '#' || ch.name,
+      coalesce(author_name, 'Quelqu''un') || ' a envoyé un message',
+      '/chat'
+    );
+  end loop;
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create trigger on_new_message_notify
+  after insert on public.messages
+  for each row execute procedure public.notify_on_new_message();
+
+
+-- ============================================================
+-- 8. TIMELINE EVENTS
 -- ============================================================
 create table public.timeline_events (
   id uuid primary key default uuid_generate_v4(),
@@ -216,6 +268,7 @@ on conflict do nothing;
 -- 12. RLS (Row Level Security)
 -- ============================================================
 alter table public.profiles enable row level security;
+alter table public.notifications enable row level security;
 alter table public.projects enable row level security;
 alter table public.tracks enable row level security;
 alter table public.cues enable row level security;
@@ -229,6 +282,11 @@ alter table public.stage_setlists enable row level security;
 -- Profiles : lecture ouverte aux authentifiés (nécessaire pour vérifier is_approved)
 create policy "Profiles visibles" on public.profiles for select using (auth.role() = 'authenticated');
 create policy "Profil modifiable par son owner" on public.profiles for update using (auth.uid() = id);
+
+-- Notifications : chaque utilisateur voit et gère les siennes
+create policy "Lecture notifs" on public.notifications for select using (auth.uid() = user_id);
+create policy "Marquer comme lu" on public.notifications for update using (auth.uid() = user_id);
+create policy "Supprimer notif" on public.notifications for delete using (auth.uid() = user_id);
 
 -- Tout le reste : réservé aux membres approuvés
 create policy "Lecture projets" on public.projects for select using (public.is_approved_member());

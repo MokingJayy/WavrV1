@@ -2,9 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/types";
+import NotificationBell from "@/components/layout/NotificationBell";
 
 const pageTitles: Record<string, { title: string; description: string }> = {
   "/dashboard": { title: "Dashboard", description: "Vue d'ensemble du projet" },
@@ -55,10 +56,7 @@ export default function Header({ profile, email = "" }: HeaderProps) {
         <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-all">
           <Search className="h-4 w-4" />
         </button>
-        <button className="flex h-9 w-9 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-all relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-primary" />
-        </button>
+        <NotificationBell />
 
         <Link
           href="/settings"

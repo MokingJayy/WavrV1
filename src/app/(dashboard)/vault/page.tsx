@@ -90,12 +90,31 @@ export default function VaultPage({ projectId }: VaultPageProps) {
 
   const createProject = async () => {
     if (!newProjectName.trim()) return;
-    const { data } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      alert("Tu dois être connecté pour créer un projet.");
+      return;
+    }
+
+    const { data, error } = await supabase
       .from("projects")
-      .insert({ name: newProjectName.trim() })
+      .insert({ name: newProjectName.trim(), created_by: user.id })
       .select("id, name")
       .single();
+
+    if (error) {
+      alert(`Erreur création projet : ${error.message}`);
+      return;
+    }
+
     if (data) {
+      // Ajouter l'utilisateur comme owner du projet
+      await supabase.from("project_members").insert({
+        project_id: data.id,
+        user_id: user.id,
+        role: "owner",
+      });
+
       setProjects((prev) => [data, ...prev]);
       setActiveProject(data.id);
     }

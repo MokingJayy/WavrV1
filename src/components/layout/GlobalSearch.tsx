@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Search, X, FolderRoot, Archive, Activity, MessageCircle, Calendar, FileText, Image as ImageIcon, Mic, HardDrive, Settings2, Command } from "lucide-react";
+import { Search, X, FolderRoot, Archive, Activity, MessageCircle, Calendar, FileText, Image as ImageIcon, Mic, HardDrive, Settings2, Command, Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";

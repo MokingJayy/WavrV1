@@ -143,7 +143,7 @@ export default function VaultPage({ projectId }: VaultPageProps) {
   };
 
   const filteredTracks = useMemo(() => {
-    let list = activeProject
+    const list = activeProject
       ? tracks.filter((t) => t.project_id === activeProject)
       : tracks;
 

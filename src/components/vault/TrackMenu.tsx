@@ -33,16 +33,20 @@ interface TrackMenuProps {
   anchorRef: React.RefObject<HTMLButtonElement | null>;
 }
 
-const VERSIONS = ["untitled", "mixup", "final", "master"] as const;
+const VERSIONS = ["maquette", "untitled", "mixup", "map", "final", "master"] as const;
 const versionLabels: Record<string, string> = {
+  maquette: "Maquette",
   untitled: "Untitled",
   mixup: "Mixup",
+  map: "MAP",
   final: "Final",
   master: "Master",
 };
 const versionColors: Record<string, string> = {
-  mixup: "text-violet-400",
+  maquette: "text-zinc-400",
   untitled: "text-zinc-400",
+  mixup: "text-violet-400",
+  map: "text-orange-400",
   final: "text-emerald-400",
   master: "text-amber-400",
 };

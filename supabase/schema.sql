@@ -149,7 +149,7 @@ $$ language plpgsql security definer;
 create table public.tracks (
   id uuid primary key default uuid_generate_v4(),
   title text not null,
-  version text not null default 'untitled' check (version in ('mixup', 'untitled', 'final', 'master')),
+  version text not null default 'untitled' check (version in ('mixup', 'untitled', 'final', 'master', 'map', 'maquette')),
   bpm integer,
   key text,
   duration_seconds integer,
@@ -338,6 +338,10 @@ on conflict do nothing;
 -- CREATE OR REPLACE FUNCTION public.is_approved_member() RETURNS boolean AS $$
 --   SELECT COALESCE((SELECT is_approved FROM public.profiles WHERE id = auth.uid()), false);
 -- $$ LANGUAGE sql SECURITY DEFINER STABLE;
+-- ALTER TABLE public.tracks DROP CONSTRAINT IF EXISTS tracks_version_check;
+-- ALTER TABLE public.tracks ADD CONSTRAINT tracks_version_check
+--   CHECK (version IN ('mixup', 'untitled', 'final', 'master', 'map', 'maquette'));
+-- CREATE POLICY "Modification tracks" ON public.tracks FOR UPDATE USING (public.is_approved_member());
 -- -- Puis supprimer et recréer les policies (voir bloc RLS ci-dessous)
 -- ============================================================
 
@@ -389,6 +393,7 @@ create policy "Écriture projets" on public.projects for insert with check (publ
 
 create policy "Lecture tracks" on public.tracks for select using (public.is_approved_member());
 create policy "Écriture tracks" on public.tracks for insert with check (public.is_approved_member());
+create policy "Modification tracks" on public.tracks for update using (public.is_approved_member());
 create policy "Suppression par owner" on public.tracks for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
 
 create policy "Lecture cues" on public.cues for select using (public.is_approved_member());

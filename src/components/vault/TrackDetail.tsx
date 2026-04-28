@@ -5,7 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import { 
   X, Play, History, Info, Download, 
   Trash2, FileAudio, Calendar, Clock, 
-  ChevronRight, Plus, Loader2, Upload
+  ChevronRight, Plus, Loader2, Upload,
+  Pencil, Check, Music2, Tag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { Track, Profile } from "@/types";
@@ -15,6 +16,7 @@ interface TrackDetailProps {
   onClose: () => void;
   onPlay: (track: Track) => void;
   onDelete: (id: string) => void;
+  onUpdate?: () => void;
   onVersionAdded?: () => void;
 }
 
@@ -29,13 +31,35 @@ function getAudioDuration(file: File): Promise<number> {
   });
 }
 
-export default function TrackDetail({ track, onClose, onPlay, onDelete, onVersionAdded }: TrackDetailProps) {
+export default function TrackDetail({ track, onClose, onPlay, onDelete, onUpdate, onVersionAdded }: TrackDetailProps) {
   const [versions, setVersions] = useState<Track[]>([]);
   const [loading, setLoading] = useState(true);
   const [author, setAuthor] = useState<Profile | null>(null);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    version: "untitled",
+    bpm: "",
+    key: ""
+  });
+  const [saving, setSaving] = useState(false);
+
   const supabase = createClient();
+
+  // Initialisation stable du formulaire
+  useEffect(() => {
+    if (track && !isEditing) {
+      setEditForm({
+        title: track.title || "",
+        version: (track.version?.toLowerCase() || "untitled"),
+        bpm: track.bpm?.toString() || "",
+        key: track.key || ""
+      });
+    }
+  }, [track.id, track.title, track.version, track.bpm, track.key]); // Retrait de isEditing des dépendances pour éviter les resets pendant l'édition
 
   useEffect(() => {
     async function loadData() {
@@ -136,6 +160,40 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onVersio
     setUploading(false);
   };
 
+  const handleUpdateTrack = async () => {
+    setSaving(true);
+    console.log("[TrackDetail] Starting update with:", { trackId: track.id, editForm });
+    const updateData = {
+      title: editForm.title.trim(),
+      version: editForm.version.toLowerCase(),
+      bpm: editForm.bpm ? parseInt(editForm.bpm) : null,
+      key: editForm.key.trim() || null
+    };
+    console.log("[TrackDetail] Prepared updateData:", updateData);
+    
+    const { error } = await supabase
+      .from("tracks")
+      .update(updateData)
+      .eq("id", track.id);
+    console.log("[TrackDetail] Supabase update result:", { error });
+
+    if (error) {
+      const lower = error.message.toLowerCase();
+      if (lower.includes("row-level security")) {
+        alert("La base bloque la modification (RLS). Ajoute une policy UPDATE sur tracks.");
+      } else if (lower.includes("check constraint") || lower.includes("tracks_version_check")) {
+        alert("Version refusée par la base. Il faut étendre la contrainte version pour inclure map/maquette.");
+      } else {
+        alert(`Erreur lors de la mise à jour : ${error.message}`);
+      }
+    } else {
+      console.log("[TrackDetail] Update successful, calling onUpdate");
+      setIsEditing(false);
+      onUpdate?.();
+    }
+    setSaving(false);
+  };
+
   const formatDate = (iso: string) => {
     return new Date(iso).toLocaleDateString("fr-FR", { 
       day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" 
@@ -149,6 +207,17 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onVersio
     return `${m}:${s.toString().padStart(2, "0")}`;
   };
 
+  const versions_list = [
+    { id: "maquette", label: "Maquette", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" },
+    { id: "untitled", label: "Untitled", color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20" },
+    { id: "mixup", label: "Mixup", color: "bg-violet-500/10 text-violet-400 border-violet-500/20" },
+    { id: "map", label: "MAP", color: "bg-orange-500/10 text-orange-400 border-orange-500/20" },
+    { id: "final", label: "Final", color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20" },
+    { id: "master", label: "Master", color: "bg-amber-500/10 text-amber-400 border-amber-500/20" },
+  ];
+
+  const currentVersionInfo = versions_list.find(v => v.id === editForm.version) || versions_list[1];
+
   return (
     <div className="fixed top-0 right-0 h-screen w-full max-w-md bg-card border-l border-border shadow-2xl z-50 flex flex-col animate-in slide-in-from-right duration-300">
       {/* Header */}
@@ -157,21 +226,74 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onVersio
           <div className="h-10 w-10 rounded-xl bg-primary/10 flex items-center justify-center">
             <FileAudio className="h-5 w-5 text-primary" />
           </div>
-          <div>
-            <h3 className="text-lg font-bold text-foreground leading-tight truncate max-w-[200px]">
-              {track.title}
-            </h3>
-            <span className="text-xs text-muted-foreground uppercase font-bold tracking-wider">
-              {track.version}
-            </span>
+          <div className="flex-1 min-w-0">
+            {isEditing ? (
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-1.5 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all"
+                  placeholder="Titre du track"
+                />
+                
+                <div className="grid grid-cols-3 gap-1 p-1 bg-secondary/50 rounded-xl border border-border/50">
+                  {versions_list.map((v) => (
+                    <button
+                      key={v.id}
+                      type="button"
+                      onClick={() => setEditForm(prev => ({ ...prev, version: v.id }))}
+                      className={cn(
+                        "px-1 py-2 rounded-lg text-[7px] font-black uppercase tracking-tighter border transition-all flex items-center justify-center",
+                        editForm.version === v.id 
+                          ? cn(v.color, "border-current shadow-sm bg-white/10 opacity-100")
+                          : "bg-transparent text-muted-foreground border-transparent hover:bg-white/5 opacity-40 hover:opacity-70"
+                      )}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-bold text-foreground leading-tight truncate max-w-[200px]">
+                  {track.title}
+                </h3>
+                <span className={cn(
+                  "inline-block mt-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border",
+                  versions_list.find(v => v.id === track.version)?.color || "bg-secondary text-muted-foreground border-border"
+                )}>
+                  {track.version}
+                </span>
+              </>
+            )}
           </div>
         </div>
-        <button 
-          onClick={onClose}
-          className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground"
-        >
-          <X className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-1">
+          {isEditing ? (
+            <button 
+              onClick={handleUpdateTrack}
+              disabled={saving}
+              className="p-2 hover:bg-primary/10 rounded-full transition-colors text-primary disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-5 w-5 animate-spin" /> : <Check className="h-5 w-5" />}
+            </button>
+          ) : (
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground"
+            >
+              <Pencil className="h-4 w-4" />
+            </button>
+          )}
+          <button 
+            onClick={onClose}
+            className="p-2 hover:bg-secondary rounded-full transition-colors text-muted-foreground"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-y-auto p-6 space-y-8">
@@ -182,13 +304,45 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onVersio
             <h4 className="text-xs font-bold uppercase tracking-widest">Informations</h4>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div className="p-3 rounded-xl bg-secondary/30 border border-border/50">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">BPM</p>
-              <p className="text-sm font-bold text-foreground">{track.bpm || "—"}</p>
+            <div className={cn(
+              "p-3 rounded-xl border transition-all relative group/input",
+              isEditing ? "bg-secondary/50 border-primary/30 ring-1 ring-primary/20" : "bg-secondary/30 border-border/50"
+            )}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">BPM</p>
+                {isEditing && <Music2 className="h-3 w-3 text-primary/50" />}
+              </div>
+              {isEditing ? (
+                <input
+                  type="number"
+                  value={editForm.bpm}
+                  onChange={(e) => setEditForm({ ...editForm, bpm: e.target.value })}
+                  placeholder="—"
+                  className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground focus:outline-none focus:ring-0 appearance-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                />
+              ) : (
+                <p className="text-sm font-bold text-foreground">{track.bpm || "—"}</p>
+              )}
             </div>
-            <div className="p-3 rounded-xl bg-secondary/30 border border-border/50">
-              <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Key</p>
-              <p className="text-sm font-bold text-foreground">{track.key || "—"}</p>
+            <div className={cn(
+              "p-3 rounded-xl border transition-all relative group/input",
+              isEditing ? "bg-secondary/50 border-primary/30 ring-1 ring-primary/20" : "bg-secondary/30 border-border/50"
+            )}>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-[10px] font-bold text-muted-foreground uppercase">Key</p>
+                {isEditing && <div className="h-1.5 w-1.5 rounded-full bg-primary/50" />}
+              </div>
+              {isEditing ? (
+                <input
+                  type="text"
+                  value={editForm.key}
+                  onChange={(e) => setEditForm({ ...editForm, key: e.target.value })}
+                  placeholder="—"
+                  className="w-full bg-transparent border-none p-0 text-sm font-bold text-foreground focus:outline-none focus:ring-0"
+                />
+              ) : (
+                <p className="text-sm font-bold text-foreground">{track.key || "—"}</p>
+              )}
             </div>
             <div className="p-3 rounded-xl bg-secondary/30 border border-border/50">
               <p className="text-[10px] font-bold text-muted-foreground uppercase mb-1">Durée</p>

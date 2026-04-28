@@ -13,10 +13,12 @@ interface Track {
   title: string;
   version: string;
   bpm: number | null;
+  key: string | null;
   duration_seconds: number | null;
   file_url: string;
   project_id: string | null;
   created_at: string;
+  parent_id?: string | null;
 }
 
 interface Project {
@@ -25,9 +27,11 @@ interface Project {
 }
 
 const versionColors: Record<string, string> = {
-  "demo": "bg-zinc-500/10 text-zinc-400",
+  "maquette": "bg-zinc-500/10 text-zinc-400",
+  "untitled": "bg-zinc-500/10 text-zinc-400",
   "rough-mix": "bg-blue-500/10 text-blue-400",
   "mixup": "bg-violet-500/10 text-violet-400",
+  "map": "bg-orange-500/10 text-orange-400",
   "pre-master": "bg-orange-500/10 text-orange-400",
   "final": "bg-emerald-500/10 text-emerald-400",
   "master": "bg-amber-500/10 text-amber-400",
@@ -63,6 +67,7 @@ export default function VaultPage({ projectId }: VaultPageProps) {
   const supabase = createClient();
 
   const fetchData = useCallback(async () => {
+    console.log("[VaultPage] fetchData called");
     setLoading(true);
     const query = supabase.from("tracks").select("*").order("created_at", { ascending: false });
     
@@ -75,6 +80,7 @@ export default function VaultPage({ projectId }: VaultPageProps) {
       projectId ? { data: [] } : supabase.from("projects").select("id, name").order("created_at", { ascending: false }),
     ]);
 
+    console.log("[VaultPage] Fetched tracks:", tracksData);
     setTracks(tracksData ?? []);
     if (!projectId) {
       setProjects(projectsData ?? []);
@@ -83,6 +89,20 @@ export default function VaultPage({ projectId }: VaultPageProps) {
   }, [supabase, projectId]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    if (detailTrack) {
+      const updated = tracks.find(t => t.id === detailTrack.id);
+      if (updated && (
+        updated.title !== detailTrack.title || 
+        updated.version !== detailTrack.version || 
+        updated.bpm !== detailTrack.bpm || 
+        updated.key !== detailTrack.key
+      )) {
+        setDetailTrack(updated);
+      }
+    }
+  }, [tracks, detailTrack]);
 
   useEffect(() => {
     if (projectId) setActiveProject(projectId);
@@ -348,6 +368,7 @@ export default function VaultPage({ projectId }: VaultPageProps) {
           onClose={() => setDetailTrack(null)}
           onPlay={(t) => setActiveTrack(t)}
           onDelete={deleteTrack}
+          onUpdate={fetchData}
           onVersionAdded={fetchData}
         />
       )}

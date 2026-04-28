@@ -13,7 +13,7 @@ export interface Profile {
 export interface Track {
   id: string;
   title: string;
-  version: "mixup" | "untitled" | "final" | "master";
+  version: "untitled" | "mixup" | "final" | "master" | "map" | "maquette";
   bpm?: number;
   key?: string;
   duration_seconds?: number;
@@ -23,6 +23,7 @@ export interface Track {
   project_id: string;
   created_at: string;
   updated_at: string;
+  parent_id?: string;
 }
 
 export interface Cue {

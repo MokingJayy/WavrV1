@@ -318,13 +318,32 @@ create table public.stage_setlists (
 
 
 -- ============================================================
--- 11. STORAGE BUCKETS
+-- 11. SESSIONS DAW — Sessions DAW
+-- ============================================================
+create table public.sessions (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  is_folder boolean not null default false,
+  folder_id uuid references public.sessions(id) on delete cascade,
+  daw text,
+  file_url text,
+  file_size bigint,
+  notes text,
+  uploaded_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+
+-- ============================================================
+-- 12. STORAGE BUCKETS
 -- ============================================================
 insert into storage.buckets (id, name, public) values
   ('audio', 'audio', false),
   ('covers', 'covers', true),
   ('documents', 'documents', false),
-  ('avatars', 'avatars', true)
+  ('avatars', 'avatars', true),
+  ('sessions', 'sessions', false)
 on conflict do nothing;
 
 
@@ -342,6 +361,29 @@ on conflict do nothing;
 -- ALTER TABLE public.tracks ADD CONSTRAINT tracks_version_check
 --   CHECK (version IN ('mixup', 'untitled', 'final', 'master', 'map', 'maquette'));
 -- CREATE POLICY "Modification tracks" ON public.tracks FOR UPDATE USING (public.is_approved_member());
+-- DROP POLICY IF EXISTS "Lecture tracks" ON public.tracks;
+-- CREATE POLICY "Lecture tracks" ON public.tracks FOR SELECT USING (public.is_approved_member() and auth.uid() = uploaded_by);
+-- CREATE TABLE public.sessions (
+--   id uuid primary key default uuid_generate_v4(),
+--   title text not null,
+--   is_folder boolean not null default false,
+--   folder_id uuid references public.sessions(id) on delete cascade,
+--   daw text,
+--   file_url text,
+--   file_size bigint,
+--   notes text,
+--   uploaded_by uuid references public.profiles(id) on delete set null,
+--   created_at timestamptz not null default now(),
+--   updated_at timestamptz not null default now()
+-- );
+-- insert into storage.buckets (id, name, public) values ('sessions', 'sessions', false) on conflict do nothing;
+-- alter table public.sessions enable row level security;
+-- create policy "Lecture sessions" on public.sessions for select using (public.is_approved_member() and auth.uid() = uploaded_by);
+-- create policy "Écriture sessions" on public.sessions for insert with check (public.is_approved_member() and auth.uid() = uploaded_by);
+-- create policy "Modification sessions" on public.sessions for update using (public.is_approved_member());
+-- create policy "Suppression sessions" on public.sessions for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
+-- create policy "Upload sessions" on storage.objects for insert with check (bucket_id = 'sessions' and public.is_approved_member());
+-- create policy "Lecture sessions" on storage.objects for select using (bucket_id = 'sessions' and public.is_approved_member());
 -- -- Puis supprimer et recréer les policies (voir bloc RLS ci-dessous)
 -- ============================================================
 
@@ -362,6 +404,7 @@ alter table public.timeline_events enable row level security;
 alter table public.royalty_splits enable row level security;
 alter table public.gallery_assets enable row level security;
 alter table public.stage_setlists enable row level security;
+alter table public.sessions enable row level security;
 
 -- Profiles : lecture ouverte aux authentifiés (nécessaire pour vérifier is_approved)
 create policy "Profiles visibles" on public.profiles for select using (auth.role() = 'authenticated');
@@ -391,7 +434,7 @@ create policy "Supprimer notif" on public.notifications for delete using (auth.u
 create policy "Lecture projets" on public.projects for select using (public.is_approved_member());
 create policy "Écriture projets" on public.projects for insert with check (public.is_approved_member());
 
-create policy "Lecture tracks" on public.tracks for select using (public.is_approved_member());
+create policy "Lecture tracks" on public.tracks for select using (public.is_approved_member() and auth.uid() = uploaded_by);
 create policy "Écriture tracks" on public.tracks for insert with check (public.is_approved_member());
 create policy "Modification tracks" on public.tracks for update using (public.is_approved_member());
 create policy "Suppression par owner" on public.tracks for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
@@ -418,6 +461,11 @@ create policy "Écriture gallery" on public.gallery_assets for insert with check
 create policy "Lecture stage" on public.stage_setlists for select using (public.is_approved_member());
 create policy "Écriture stage" on public.stage_setlists for insert with check (public.is_approved_member());
 
+create policy "Lecture sessions" on public.sessions for select using (public.is_approved_member() and auth.uid() = uploaded_by);
+create policy "Écriture sessions" on public.sessions for insert with check (public.is_approved_member() and auth.uid() = uploaded_by);
+create policy "Modification sessions" on public.sessions for update using (public.is_approved_member());
+create policy "Suppression sessions" on public.sessions for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
+
 -- Storage : réservé aux membres approuvés
 create policy "Upload avatar" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');
 create policy "Update avatar" on storage.objects for update using (bucket_id = 'avatars' and auth.uid()::text = (storage.foldername(name))[1]);
@@ -429,3 +477,5 @@ create policy "Upload covers" on storage.objects for insert with check (bucket_i
 create policy "Lecture covers publique" on storage.objects for select using (bucket_id = 'covers');
 create policy "Upload documents" on storage.objects for insert with check (bucket_id = 'documents' and public.is_approved_member());
 create policy "Lecture documents" on storage.objects for select using (bucket_id = 'documents' and public.is_approved_member());
+create policy "Upload sessions" on storage.objects for insert with check (bucket_id = 'sessions' and public.is_approved_member());
+create policy "Lecture sessions" on storage.objects for select using (bucket_id = 'sessions' and public.is_approved_member());

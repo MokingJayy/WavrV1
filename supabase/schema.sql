@@ -318,7 +318,25 @@ create table public.stage_setlists (
 
 
 -- ============================================================
--- 11. SESSIONS DAW — Sessions DAW
+-- 11. TICKETS — Tickets from cues
+-- ============================================================
+create table public.tickets (
+  id uuid primary key default uuid_generate_v4(),
+  title text not null,
+  description text,
+  status text not null default 'open' check (status in ('open', 'in_progress', 'resolved', 'closed')),
+  cue_id uuid references public.cues(id) on delete set null,
+  track_id uuid references public.tracks(id) on delete cascade,
+  project_id uuid references public.projects(id) on delete cascade,
+  channel_id uuid references public.channels(id) on delete set null,
+  created_by uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+
+-- ============================================================
+-- 12. SESSIONS DAW — Sessions DAW
 -- ============================================================
 create table public.sessions (
   id uuid primary key default uuid_generate_v4(),
@@ -405,6 +423,7 @@ alter table public.royalty_splits enable row level security;
 alter table public.gallery_assets enable row level security;
 alter table public.stage_setlists enable row level security;
 alter table public.sessions enable row level security;
+alter table public.tickets enable row level security;
 
 -- Profiles : lecture ouverte aux authentifiés (nécessaire pour vérifier is_approved)
 create policy "Profiles visibles" on public.profiles for select using (auth.role() = 'authenticated');
@@ -439,9 +458,10 @@ create policy "Écriture tracks" on public.tracks for insert with check (public.
 create policy "Modification tracks" on public.tracks for update using (public.is_approved_member());
 create policy "Suppression par owner" on public.tracks for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
 
-create policy "Lecture cues" on public.cues for select using (public.is_approved_member());
-create policy "Écriture cues" on public.cues for insert with check (public.is_approved_member());
-create policy "Modification par owner" on public.cues for update using (public.is_approved_member() and auth.uid() = author_id);
+create policy "Lecture cues" on public.cues for select using (auth.role() = 'authenticated');
+create policy "Écriture cues" on public.cues for insert with check (auth.role() = 'authenticated');
+create policy "Modification cues" on public.cues for update using (auth.role() = 'authenticated');
+create policy "Suppression cues" on public.cues for delete using (auth.role() = 'authenticated');
 
 create policy "Canaux visibles" on public.channels for select using (public.is_approved_member());
 create policy "Création de canal" on public.channels for insert with check (public.is_approved_member());
@@ -465,6 +485,15 @@ create policy "Lecture sessions" on public.sessions for select using (public.is_
 create policy "Écriture sessions" on public.sessions for insert with check (public.is_approved_member() and auth.uid() = uploaded_by);
 create policy "Modification sessions" on public.sessions for update using (public.is_approved_member());
 create policy "Suppression sessions" on public.sessions for delete using (public.is_approved_member() and auth.uid() = uploaded_by);
+
+-- Tickets : réservé aux membres du projet
+create policy "Lecture tickets" on public.tickets for select using (
+  public.is_approved_member() and
+  exists (select 1 from public.project_members where project_id = tickets.project_id and user_id = auth.uid())
+);
+create policy "Écriture tickets" on public.tickets for insert with check (public.is_approved_member());
+create policy "Modification tickets" on public.tickets for update using (public.is_approved_member());
+create policy "Suppression tickets" on public.tickets for delete using (public.is_approved_member() and auth.uid() = created_by);
 
 -- Storage : réservé aux membres approuvés
 create policy "Upload avatar" on storage.objects for insert with check (bucket_id = 'avatars' and auth.role() = 'authenticated');

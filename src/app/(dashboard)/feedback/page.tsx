@@ -4,7 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   Play, Pause, Plus, CheckCircle2, MessageSquareDot,
-  Loader2, Trash2, Music2, X, ChevronDown,
+  Loader2, Trash2, Music2, X, ChevronDown, Ticket,
 } from "lucide-react";
 
 interface Track {
@@ -19,7 +19,7 @@ interface Cue {
   id: string;
   track_id: string;
   timestamp_seconds: number;
-  author: string;
+  author_id: string | null;
   content: string;
   resolved: boolean;
   created_at: string;
@@ -47,7 +47,6 @@ export default function FeedbackPage() {
 
   const [addingCue, setAddingCue] = useState(false);
   const [cueTimestamp, setCueTimestamp] = useState(0);
-  const [cueAuthor, setCueAuthor] = useState("");
   const [cueContent, setCueContent] = useState("");
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -63,7 +62,7 @@ export default function FeedbackPage() {
     setLoadingCues(true);
     setFetchError(null);
     const { data, error } = await supabase
-      .from("feedback_cues")
+      .from("cues")
       .select("*")
       .eq("track_id", trackId)
       .order("timestamp_seconds", { ascending: true });
@@ -103,13 +102,14 @@ export default function FeedbackPage() {
   };
 
   const saveCue = async () => {
-    if (!selectedTrack || !cueContent.trim() || !cueAuthor.trim()) return;
+    if (!selectedTrack || !cueContent.trim()) return;
     setSaving(true);
     setSaveError(null);
-    const { data, error } = await supabase.from("feedback_cues").insert({
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase.from("cues").insert({
       track_id: selectedTrack.id,
       timestamp_seconds: Math.round(cueTimestamp * 10) / 10,
-      author: cueAuthor.trim(),
+      author_id: user?.id,
       content: cueContent.trim(),
       resolved: false,
     }).select().single();
@@ -125,13 +125,63 @@ export default function FeedbackPage() {
   };
 
   const toggleResolved = async (cue: Cue) => {
-    await supabase.from("feedback_cues").update({ resolved: !cue.resolved }).eq("id", cue.id);
+    await supabase.from("cues").update({ resolved: !cue.resolved }).eq("id", cue.id);
     setCues((prev) => prev.map((c) => c.id === cue.id ? { ...c, resolved: !c.resolved } : c));
   };
 
   const deleteCue = async (id: string) => {
-    await supabase.from("feedback_cues").delete().eq("id", id);
+    await supabase.from("cues").delete().eq("id", id);
     setCues((prev) => prev.filter((c) => c.id !== id));
+  };
+
+  const createTicketFromCue = async (cue: Cue) => {
+    if (!selectedTrack) return;
+
+    // Get project_id from track
+    const { data: trackData } = await supabase
+      .from("tracks")
+      .select("project_id")
+      .eq("id", selectedTrack.id)
+      .single();
+
+    if (!trackData?.project_id) {
+      alert("Impossible de créer le ticket : pas de projet associé");
+      return;
+    }
+
+    // Create channel for the ticket
+    const { data: channelData, error: channelError } = await supabase
+      .from("channels")
+      .insert({
+        name: `Ticket-${cue.id}-${Date.now()}`,
+      })
+      .select()
+      .single();
+
+    if (channelError) {
+      alert(`Erreur création channel : ${channelError.message}`);
+      return;
+    }
+
+    // Create ticket linked to cue and channel
+    const { error: ticketError } = await supabase
+      .from("tickets")
+      .insert({
+        title: `Ticket from cue @ ${formatTime(cue.timestamp_seconds)}`,
+        description: cue.content,
+        cue_id: cue.id,
+        track_id: selectedTrack.id,
+        project_id: trackData.project_id,
+        channel_id: channelData.id,
+        status: "open",
+      });
+
+    if (ticketError) {
+      alert(`Erreur création ticket : ${ticketError.message}`);
+      return;
+    }
+
+    alert("Ticket créé avec channel de chat !");
   };
 
   const seekToCue = (ts: number) => {
@@ -266,13 +316,6 @@ export default function FeedbackPage() {
                 className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
                 placeholder="Timestamp (secondes)"
               />
-              <input
-                type="text"
-                value={cueAuthor}
-                onChange={(e) => setCueAuthor(e.target.value)}
-                placeholder="Ton nom / rôle (ex: Ingé Son, Artiste…)"
-                className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground focus:outline-none focus:ring-2 focus:ring-primary/40 transition"
-              />
               <textarea
                 value={cueContent}
                 onChange={(e) => setCueContent(e.target.value)}
@@ -287,7 +330,7 @@ export default function FeedbackPage() {
               )}
               <button
                 onClick={saveCue}
-                disabled={saving || !cueContent.trim() || !cueAuthor.trim()}
+                disabled={saving || !cueContent.trim()}
                 className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition"
               >
                 {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
@@ -364,17 +407,24 @@ export default function FeedbackPage() {
                     >
                       {formatTime(cue.timestamp_seconds)}
                     </button>
-                    <span className="text-xs text-muted-foreground">·</span>
-                    <span className="text-xs font-medium text-foreground">{cue.author}</span>
                   </div>
                   <p className="text-sm text-foreground/80">{cue.content}</p>
                 </div>
-                <button
-                  onClick={() => deleteCue(cue.id)}
-                  className="mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => createTicketFromCue(cue)}
+                    className="mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-primary transition"
+                    title="Créer un ticket"
+                  >
+                    <Ticket className="h-3.5 w-3.5" />
+                  </button>
+                  <button
+                    onClick={() => deleteCue(cue.id)}
+                    className="mt-0.5 shrink-0 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive transition"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
             ))
           )}

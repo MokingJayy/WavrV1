@@ -52,13 +52,13 @@ export default function AdminClient() {
 
   useEffect(() => {
     fetchCurrentUser();
-  }, []);
+  }, [fetchCurrentUser]);
 
   useEffect(() => {
     if (currentUser?.role === "admin") {
       fetchProfiles();
     }
-  }, [currentUser]);
+  }, [currentUser, fetchProfiles]);
 
   const fetchCurrentUser = async () => {
     const { data: { user } } = await supabase.auth.getUser();

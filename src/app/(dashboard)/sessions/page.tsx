@@ -3,7 +3,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
-  Upload,
   Loader2,
   CheckCircle2,
   X,
@@ -36,8 +35,6 @@ const DAW_CONFIG: Record<string, { label: string; color: string; exts: string[] 
   "pro-tools":  { label: "Pro Tools",    color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", exts: [".ptx", ".ptxt", ".ptsession"] },
   "other":      { label: "Autre DAW",    color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20",        exts: [] },
 };
-
-const ALL_EXTS = [];
 
 function detectDaw(filename: string): string {
   const lower = filename.toLowerCase();

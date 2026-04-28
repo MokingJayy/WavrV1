@@ -106,7 +106,7 @@ export default function FeedbackPage() {
     setSaving(true);
     setSaveError(null);
     const { data: { user } } = await supabase.auth.getUser();
-    const { data, error } = await supabase.from("cues").insert({
+    const { error } = await supabase.from("cues").insert({
       track_id: selectedTrack.id,
       timestamp_seconds: Math.round(cueTimestamp * 10) / 10,
       author_id: user?.id,

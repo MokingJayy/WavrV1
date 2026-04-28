@@ -2,14 +2,15 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import {
   Archive, Activity, MessageCircle, Calendar, FileText,
   Image, Mic, Settings, LogOut, Music, HardDrive,
-  PanelLeftOpen, PanelLeftClose, FolderOpen, ArrowLeft, Users, ChevronRight,
+  PanelLeftOpen, PanelLeftClose, FolderOpen, ArrowLeft, Users, ChevronRight, Shield,
 } from "lucide-react";
+import type { Profile } from "@/types";
 
 const PROJECT_MODULES = [
   { name: "The Vault",      slug: "vault",     icon: Archive,        description: "Audio & versions" },
@@ -32,8 +33,24 @@ export default function Sidebar() {
   const router = useRouter();
   const supabase = createClient();
   const [open, setOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Profile | null>(null);
 
   const projectId = extractProjectId(pathname);
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, []);
+
+  const fetchCurrentUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", user.id)
+      .single();
+    setCurrentUser(profile);
+  };
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -174,6 +191,20 @@ export default function Sidebar() {
 
       {/* Bottom */}
       <div className="border-t border-border px-2 py-3 space-y-0.5">
+        {currentUser?.role === "admin" && (
+          <Link
+            href="/admin"
+            title={!open ? "Administration" : undefined}
+            className={cn(
+              "flex items-center gap-3 rounded-lg py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
+              open ? "px-3" : "justify-center px-2",
+              pathname === "/admin" && "bg-primary/10 text-primary"
+            )}
+          >
+            <Shield className={cn("h-4 w-4 flex-shrink-0", pathname === "/admin" ? "text-primary" : "text-muted-foreground")} />
+            {open && "Administration"}
+          </Link>
+        )}
         <Link
           href="/settings"
           title={!open ? "Paramètres" : undefined}

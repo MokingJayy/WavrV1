@@ -189,21 +189,21 @@ export default function VaultPage({ projectId }: VaultPageProps) {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">The Vault</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">Versions audio & lecteur Hi-Fi</p>
+          <h2 className="text-xl font-semibold text-foreground">The Vault</h2>
+          <p className="text-base text-muted-foreground mt-0.5">Versions audio & lecteur Hi-Fi</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex items-center gap-3 flex-wrap">
         <button
           onClick={() => setActiveProject(null)}
           onDragOver={(e) => onDragOver(e, "all")}
           onDragLeave={onDragLeave}
           onDrop={(e) => onDrop(e, null)}
-          className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+          className={`flex items-center gap-2 rounded-lg px-4 py-2.5 text-base font-medium transition ${
             dragOverTarget === "all"
               ? "bg-primary/20 text-primary border border-primary scale-105"
               : activeProject === null
@@ -216,17 +216,17 @@ export default function VaultPage({ projectId }: VaultPageProps) {
 
         {projects.map((p) => (
           confirmDeleteId === p.id ? (
-            <div key={p.id} className="flex items-center gap-1.5 rounded-lg border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-sm">
-              <span className="text-destructive text-xs font-medium">Supprimer &quot;{p.name}&quot; ?</span>
+            <div key={p.id} className="flex items-center gap-2 rounded-lg border border-destructive/30 bg-destructive/10 px-4 py-2.5 text-base">
+              <span className="text-destructive text-sm font-medium">Supprimer &quot;{p.name}&quot; ?</span>
               <button
                 onClick={() => deleteProject(p.id)}
-                className="rounded px-1.5 py-0.5 text-xs font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition"
+                className="rounded px-2 py-1 text-sm font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90 transition"
               >
                 Oui
               </button>
               <button
                 onClick={() => setConfirmDeleteId(null)}
-                className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:text-foreground transition"
+                className="rounded px-2 py-1 text-sm text-muted-foreground hover:text-foreground transition"
               >
                 Non
               </button>
@@ -234,7 +234,7 @@ export default function VaultPage({ projectId }: VaultPageProps) {
           ) : (
             <div
               key={p.id}
-              className={`group relative flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition ${
+              className={`group relative flex items-center gap-2 rounded-lg px-4 py-2.5 text-base font-medium transition ${
                 dragOverTarget === p.id
                   ? "bg-primary/20 text-primary border border-primary scale-105"
                   : activeProject === p.id
@@ -245,23 +245,23 @@ export default function VaultPage({ projectId }: VaultPageProps) {
               onDragLeave={onDragLeave}
               onDrop={(e) => onDrop(e, p.id)}
             >
-              <button className="flex items-center gap-1.5" onClick={() => setActiveProject(p.id)}>
-                <FolderOpen className="h-3.5 w-3.5" />
+              <button className="flex items-center gap-2" onClick={() => setActiveProject(p.id)}>
+                <FolderOpen className="h-4 w-4" />
                 {p.name}
-                <span className="text-xs opacity-60">({tracks.filter((t) => t.project_id === p.id).length})</span>
+                <span className="text-sm opacity-60">({tracks.filter((t) => t.project_id === p.id).length})</span>
               </button>
               <button
                 onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(p.id); }}
                 className="ml-0.5 opacity-0 group-hover:opacity-100 rounded hover:text-destructive transition"
               >
-                <X className="h-3 w-3" />
+                <X className="h-4 w-4" />
               </button>
             </div>
           )
         ))}
 
         {creatingProject ? (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <input
               autoFocus
               type="text"
@@ -269,21 +269,21 @@ export default function VaultPage({ projectId }: VaultPageProps) {
               onChange={(e) => setNewProjectName(e.target.value)}
               onKeyDown={(e) => { if (e.key === "Enter") createProject(); if (e.key === "Escape") setCreatingProject(false); }}
               placeholder="Nom du projet..."
-              className="rounded-lg border border-primary/30 bg-secondary px-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
+              className="rounded-lg border border-primary/30 bg-secondary px-4 py-2.5 text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-primary/50"
             />
-            <button onClick={createProject} className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition">
+            <button onClick={createProject} className="rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition">
               Créer
             </button>
             <button onClick={() => setCreatingProject(false)} className="text-muted-foreground hover:text-foreground">
-              <X className="h-4 w-4" />
+              <X className="h-5 w-5" />
             </button>
           </div>
         ) : (
           <button
             onClick={() => setCreatingProject(true)}
-            className="flex items-center gap-1.5 rounded-lg border border-dashed border-border px-3 py-1.5 text-sm text-muted-foreground hover:border-primary/30 hover:text-primary transition"
+            className="flex items-center gap-2 rounded-lg border border-dashed border-border px-4 py-2.5 text-base text-muted-foreground hover:border-primary/30 hover:text-primary transition"
           >
-            <Plus className="h-3.5 w-3.5" />
+            <Plus className="h-4 w-4" />
             Nouveau projet
           </button>
         )}
@@ -292,24 +292,24 @@ export default function VaultPage({ projectId }: VaultPageProps) {
       <VaultUpload onUploaded={fetchData} projectId={activeProject} />
 
       <div className="rounded-xl border border-border bg-card overflow-hidden">
-        <div className="flex items-center gap-4 px-4 py-2.5 text-xs font-medium text-muted-foreground border-b border-border">
-          <div className="w-7 shrink-0" />
+        <div className="flex items-center gap-4 px-5 py-3 text-sm font-medium text-muted-foreground border-b border-border">
+          <div className="w-8 shrink-0" />
           <div className="flex-1 min-w-0">Titre</div>
-          <div className="w-28 shrink-0">Version</div>
-          <div className="w-20 shrink-0 text-right">BPM</div>
-          <div className="w-14 shrink-0 text-right">Durée</div>
-          <div className="w-6 shrink-0" />
+          <div className="w-32 shrink-0">Version</div>
+          <div className="w-24 shrink-0 text-right">BPM</div>
+          <div className="w-20 shrink-0 text-right">Durée</div>
+          <div className="w-8 shrink-0" />
         </div>
 
         {loading && (
-          <div className="flex items-center justify-center gap-2 py-10 text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            <span className="text-sm">Chargement...</span>
+          <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
+            <Loader2 className="h-5 w-5 animate-spin" />
+            <span className="text-base">Chargement...</span>
           </div>
         )}
 
         {!loading && filteredTracks.length === 0 && (
-          <div className="py-10 text-center text-sm text-muted-foreground">
+          <div className="py-12 text-center text-base text-muted-foreground">
             {activeProject
               ? "Aucun son dans ce projet — uploade ci-dessus."
               : "Aucun track pour l'instant — uploade le premier ci-dessus."}
@@ -323,37 +323,37 @@ export default function VaultPage({ projectId }: VaultPageProps) {
             onDragStart={() => onDragStart(track.id)}
             onDragEnd={onDragEnd}
             onClick={() => setDetailTrack(track)}
-            className={`flex items-center gap-4 px-4 py-3 hover:bg-accent/50 transition group border-b border-border last:border-0 cursor-pointer ${
+            className={`flex items-center gap-4 px-5 py-4 hover:bg-accent/50 transition group border-b border-border last:border-0 cursor-pointer ${
               draggingTrackId === track.id ? "opacity-40 scale-[0.99]" : ""
             } ${
               detailTrack?.id === track.id ? "bg-primary/5 shadow-[inset_2px_0_0_hsl(var(--primary))]" : ""
             }`}
           >
-            <div className="w-7 h-7 shrink-0 flex items-center justify-center rounded-md bg-secondary group-hover:bg-primary/10 transition">
+            <div className="w-8 h-8 shrink-0 flex items-center justify-center rounded-md bg-secondary group-hover:bg-primary/10 transition">
               {activeTrack?.id === track.id
-                ? <Play className="h-3.5 w-3.5 text-primary" />
-                : <Music2 className="h-3.5 w-3.5 text-muted-foreground group-hover:text-primary transition" />
+                ? <Play className="h-4 w-4 text-primary" />
+                : <Music2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition" />
               }
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium text-foreground truncate">{track.title}</p>
-              <p className="text-xs text-muted-foreground">{formatDate(track.created_at)}</p>
+              <p className="text-base font-medium text-foreground truncate">{track.title}</p>
+              <p className="text-sm text-muted-foreground">{formatDate(track.created_at)}</p>
             </div>
-            <div className="w-28 shrink-0">
-              <span className={`rounded-md px-2 py-0.5 text-xs font-medium capitalize ${versionColors[track.version] ?? "bg-zinc-500/10 text-zinc-400"}`}>
+            <div className="w-32 shrink-0">
+              <span className={`rounded-md px-2.5 py-1 text-xs font-medium capitalize ${versionColors[track.version] ?? "bg-zinc-500/10 text-zinc-400"}`}>
                 {track.version}
               </span>
             </div>
-            <div className="w-20 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+            <div className="w-24 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
               {track.bpm ? `${track.bpm} BPM` : "—"}
             </div>
-            <div className="w-14 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
+            <div className="w-20 shrink-0 text-right text-sm tabular-nums text-muted-foreground">
               {formatDuration(track.duration_seconds)}
             </div>
-            <div className="w-6 shrink-0 flex justify-center">
+            <div className="w-8 shrink-0 flex justify-center">
               <button
                 onClick={(e) => { e.stopPropagation(); setDetailTrack(track); }}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100 flex items-center"
+                className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground transition opacity-0 group-hover:opacity-100 flex items-center"
               >
                 <MoreHorizontal className="h-4 w-4" />
               </button>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { usePathname } from "next/navigation";
 import {
   Play, Pause, Plus, CheckCircle2, MessageSquareDot,
   Loader2, Trash2, Music2, X, ChevronDown, Ticket,
@@ -30,8 +31,15 @@ function formatTime(s: number) {
   return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, "0")}`;
 }
 
+function extractProjectId(pathname: string): string | null {
+  const match = pathname.match(/^\/projects\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i);
+  return match?.[1] ?? null;
+}
+
 export default function FeedbackPage() {
   const supabase = createClient();
+  const pathname = usePathname();
+  const projectId = extractProjectId(pathname);
 
   const [tracks, setTracks] = useState<Track[]>([]);
   const [selectedTrack, setSelectedTrack] = useState<Track | null>(null);
@@ -51,12 +59,20 @@ export default function FeedbackPage() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  const [showTicketModal, setShowTicketModal] = useState(false);
+  const [selectedCueForTicket, setSelectedCueForTicket] = useState<Cue | null>(null);
+  const [ticketName, setTicketName] = useState("");
+  const [creatingTicket, setCreatingTicket] = useState(false);
 
   const fetchTracks = useCallback(async () => {
-    const { data } = await supabase.from("tracks").select("id, title, version, file_url, duration_seconds").order("created_at", { ascending: false });
+    let query = supabase.from("tracks").select("id, title, version, file_url, duration_seconds");
+    if (projectId) {
+      query = query.eq("project_id", projectId);
+    }
+    const { data } = await query.order("created_at", { ascending: false });
     setTracks(data ?? []);
     setLoadingTracks(false);
-  }, [supabase]);
+  }, [supabase, projectId]);
 
   const fetchCues = useCallback(async (trackId: string) => {
     setLoadingCues(true);
@@ -136,6 +152,15 @@ export default function FeedbackPage() {
 
   const createTicketFromCue = async (cue: Cue) => {
     if (!selectedTrack) return;
+    setSelectedCueForTicket(cue);
+    setTicketName(`Ticket @ ${formatTime(cue.timestamp_seconds)}`);
+    setShowTicketModal(true);
+  };
+
+  const handleCreateTicket = async () => {
+    if (!selectedTrack || !selectedCueForTicket || !ticketName.trim()) return;
+
+    setCreatingTicket(true);
 
     // Get project_id from track
     const { data: trackData } = await supabase
@@ -146,6 +171,7 @@ export default function FeedbackPage() {
 
     if (!trackData?.project_id) {
       alert("Impossible de créer le ticket : pas de projet associé");
+      setCreatingTicket(false);
       return;
     }
 
@@ -153,13 +179,14 @@ export default function FeedbackPage() {
     const { data: channelData, error: channelError } = await supabase
       .from("channels")
       .insert({
-        name: `Ticket-${cue.id}-${Date.now()}`,
+        name: `Ticket-${selectedCueForTicket.id}-${Date.now()}`,
       })
       .select()
       .single();
 
     if (channelError) {
       alert(`Erreur création channel : ${channelError.message}`);
+      setCreatingTicket(false);
       return;
     }
 
@@ -167,9 +194,9 @@ export default function FeedbackPage() {
     const { error: ticketError } = await supabase
       .from("tickets")
       .insert({
-        title: `Ticket from cue @ ${formatTime(cue.timestamp_seconds)}`,
-        description: cue.content,
-        cue_id: cue.id,
+        title: ticketName.trim(),
+        description: selectedCueForTicket.content,
+        cue_id: selectedCueForTicket.id,
         track_id: selectedTrack.id,
         project_id: trackData.project_id,
         channel_id: channelData.id,
@@ -178,10 +205,14 @@ export default function FeedbackPage() {
 
     if (ticketError) {
       alert(`Erreur création ticket : ${ticketError.message}`);
-      return;
+    } else {
+      setShowTicketModal(false);
+      setTicketName("");
+      setSelectedCueForTicket(null);
+      alert("Ticket créé avec channel de chat !");
     }
 
-    alert("Ticket créé avec channel de chat !");
+    setCreatingTicket(false);
   };
 
   const seekToCue = (ts: number) => {
@@ -428,6 +459,57 @@ export default function FeedbackPage() {
               </div>
             ))
           )}
+        </div>
+      )}
+
+      {/* Ticket Creation Modal */}
+      {showTicketModal && selectedCueForTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+          <div className="w-full max-w-md rounded-2xl border border-border bg-card shadow-2xl">
+            <div className="flex items-center justify-between border-b border-border px-5 py-4">
+              <h3 className="text-base font-semibold text-foreground">Créer un ticket</h3>
+              <button
+                onClick={() => { setShowTicketModal(false); setTicketName(""); setSelectedCueForTicket(null); }}
+                className="flex h-7 w-7 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="p-5 space-y-4">
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">
+                  Nom du ticket <span className="text-destructive">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={ticketName}
+                  onChange={(e) => setTicketName(e.target.value)}
+                  placeholder="Ex: Correction refrain @ 1:30"
+                  autoFocus
+                  className="w-full rounded-lg border border-border bg-secondary px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 transition"
+                />
+              </div>
+              <div className="space-y-1.5">
+                <label className="text-xs font-medium text-foreground">Description (du cue)</label>
+                <p className="text-sm text-muted-foreground bg-secondary/50 rounded-lg px-3 py-2">{selectedCueForTicket.content}</p>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button
+                  onClick={() => { setShowTicketModal(false); setTicketName(""); setSelectedCueForTicket(null); }}
+                  className="flex-1 rounded-lg border border-border px-4 py-2 text-sm text-muted-foreground hover:bg-accent transition"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleCreateTicket}
+                  disabled={creatingTicket || !ticketName.trim()}
+                  className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                >
+                  {creatingTicket ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Créer le ticket"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

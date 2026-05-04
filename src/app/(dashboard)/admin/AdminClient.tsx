@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import {
@@ -50,17 +50,7 @@ export default function AdminClient() {
   const [roleFilter, setRoleFilter] = useState<UserRole | "all">("all");
   const [updatingId, setUpdatingId] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchCurrentUser();
-  }, [fetchCurrentUser]);
-
-  useEffect(() => {
-    if (currentUser?.role === "admin") {
-      fetchProfiles();
-    }
-  }, [currentUser, fetchProfiles]);
-
-  const fetchCurrentUser = async () => {
+  const fetchCurrentUser = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
       router.push("/login");
@@ -79,9 +69,9 @@ export default function AdminClient() {
     }
 
     setCurrentUser(profile);
-  };
+  }, [supabase, router]);
 
-  const fetchProfiles = async () => {
+  const fetchProfiles = useCallback(async () => {
     setLoading(true);
     const { data } = await supabase
       .from("profiles")
@@ -89,7 +79,17 @@ export default function AdminClient() {
       .order("created_at", { ascending: false });
     setProfiles(data || []);
     setLoading(false);
-  };
+  }, [supabase]);
+
+  useEffect(() => {
+    fetchCurrentUser();
+  }, [fetchCurrentUser]);
+
+  useEffect(() => {
+    if (currentUser?.role === "admin") {
+      fetchProfiles();
+    }
+  }, [currentUser, fetchProfiles]);
 
   const toggleApproval = async (profileId: string, currentStatus: boolean) => {
     setUpdatingId(profileId);

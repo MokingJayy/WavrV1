@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { Plus, FolderOpen, Users, ChevronRight, X, Loader2 } from "lucide-react";
+import { Plus, FolderOpen, Users, ChevronRight, X, Loader2, Trash2 } from "lucide-react";
 import type { Project, ProjectMemberRole } from "@/types";
 
 const ROLE_LABELS: Record<ProjectMemberRole, string> = {
@@ -39,6 +39,8 @@ export default function ProjectsClient({ projects: initial, userId }: Props) {
   const [description, setDescription] = useState("");
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,79 +70,129 @@ export default function ProjectsClient({ projects: initial, userId }: Props) {
     setCreating(false);
   };
 
+  const handleDelete = async (projectId: string) => {
+    setDeletingId(projectId);
+    const { error } = await supabase.from("projects").delete().eq("id", projectId);
+
+    if (!error) {
+      setProjects((prev) => prev.filter((p) => p.id !== projectId));
+    }
+    setDeletingId(null);
+    setConfirmDeleteId(null);
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Mes projets</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
+          <h2 className="text-xl font-semibold text-foreground">Mes projets</h2>
+          <p className="text-base text-muted-foreground mt-0.5">
             {projects.length} projet{projects.length !== 1 ? "s" : ""}
           </p>
         </div>
         <button
           onClick={() => setShowModal(true)}
-          className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+          className="flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 transition"
         >
-          <Plus className="h-4 w-4" />
+          <Plus className="h-5 w-5" />
           Nouveau projet
         </button>
       </div>
 
       {/* Grid */}
       {projects.length === 0 ? (
-        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-card/50 py-20 text-center">
-          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
-            <FolderOpen className="h-6 w-6 text-primary" />
+        <div className="flex flex-col items-center gap-4 rounded-xl border border-dashed border-border bg-card/50 py-24 text-center">
+          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+            <FolderOpen className="h-8 w-8 text-primary" />
           </div>
           <div>
-            <p className="text-sm font-medium text-foreground">Aucun projet</p>
-            <p className="text-xs text-muted-foreground mt-1">
+            <p className="text-base font-medium text-foreground">Aucun projet</p>
+            <p className="text-sm text-muted-foreground mt-1">
               Crée ton premier projet ou rejoins-en un via un lien d'invitation.
             </p>
           </div>
           <button
             onClick={() => setShowModal(true)}
-            className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition"
+            className="flex items-center gap-2 rounded-lg bg-primary px-5 py-3 text-base font-medium text-primary-foreground hover:bg-primary/90 transition"
           >
-            <Plus className="h-4 w-4" />
+            <Plus className="h-5 w-5" />
             Créer un projet
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
           {projects.map((project) => (
-            <button
+            <div
               key={project.id}
-              onClick={() => router.push(`/projects/${project.id}`)}
-              className="group flex flex-col gap-3 rounded-xl border border-border bg-card p-5 text-left hover:border-primary/30 hover:bg-accent/50 transition-all"
+              className="group flex flex-col gap-4 rounded-xl border border-border bg-card p-6 text-left hover:border-primary/30 hover:bg-accent/50 transition-all relative"
             >
-              <div className="flex items-start justify-between">
-                <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-                  <FolderOpen className="h-5 w-5 text-primary" />
+              {confirmDeleteId === project.id ? (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/95 backdrop-blur-sm rounded-xl">
+                  <div className="text-center space-y-3 px-4">
+                    <p className="text-base font-medium text-foreground">Supprimer "{project.name}" ?</p>
+                    <div className="flex items-center justify-center gap-2">
+                      <button
+                        onClick={() => setConfirmDeleteId(null)}
+                        className="rounded-lg border border-border px-4 py-2 text-sm font-medium text-muted-foreground hover:bg-accent transition"
+                      >
+                        Annuler
+                      </button>
+                      <button
+                        onClick={() => handleDelete(project.id)}
+                        disabled={deletingId === project.id}
+                        className="rounded-lg bg-destructive px-4 py-2 text-sm font-medium text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        {deletingId === project.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Supprimer"}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <ChevronRight className="h-4 w-4 text-muted-foreground/40 group-hover:text-primary transition group-hover:translate-x-0.5" />
-              </div>
-              <div className="flex-1 space-y-1">
-                <h3 className="text-sm font-semibold text-foreground">{project.name}</h3>
-                {project.description && (
-                  <p className="text-xs text-muted-foreground line-clamp-2">
-                    {project.description}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex items-center rounded-full border px-2 py-0.5 text-[11px] font-medium ${ROLE_COLORS[project.myRole]}`}
-                >
-                  {ROLE_LABELS[project.myRole]}
-                </span>
-                <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                  <Users className="h-3 w-3" />
-                  {new Date(project.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
-                </span>
-              </div>
-            </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => router.push(`/projects/${project.id}`)}
+                    className="flex-1 flex flex-col gap-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+                        <FolderOpen className="h-6 w-6 text-primary" />
+                      </div>
+                      <ChevronRight className="h-5 w-5 text-muted-foreground/40 group-hover:text-primary transition group-hover:translate-x-0.5" />
+                    </div>
+                    <div className="flex-1 space-y-2">
+                      <h3 className="text-base font-semibold text-foreground">{project.name}</h3>
+                      {project.description && (
+                        <p className="text-sm text-muted-foreground line-clamp-2">
+                          {project.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-medium ${ROLE_COLORS[project.myRole]}`}
+                        >
+                          {ROLE_LABELS[project.myRole]}
+                        </span>
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Users className="h-4 w-4" />
+                          {new Date(project.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                      </div>
+                      {project.myRole === "owner" && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(project.id); }}
+                          className="flex h-8 w-8 items-center justify-center rounded-lg text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </button>
+                </>
+              )}
+            </div>
           ))}
         </div>
       )}

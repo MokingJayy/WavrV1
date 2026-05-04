@@ -46,15 +46,15 @@ export default function Header({ profile, email = "" }: HeaderProps) {
   const isSettings = pathname === "/settings";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card px-6">
+    <header className="flex h-20 items-center justify-between border-b border-border bg-card px-8">
       <div>
-        <h1 className="text-base font-semibold text-foreground">{page.title}</h1>
+        <h1 className="text-lg font-semibold text-foreground">{page.title}</h1>
         {page.description && (
-          <p className="text-xs text-muted-foreground">{page.description}</p>
+          <p className="text-sm text-muted-foreground">{page.description}</p>
         )}
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-3">
         <GlobalSearch />
         <NotificationBell />
 
@@ -62,7 +62,7 @@ export default function Header({ profile, email = "" }: HeaderProps) {
           href="/settings"
           title="Mon profil"
           className={cn(
-            "ml-2 flex h-8 w-8 items-center justify-center rounded-full border overflow-hidden text-xs font-semibold transition-all hover:scale-105",
+            "ml-2 flex h-10 w-10 items-center justify-center rounded-full border overflow-hidden text-sm font-semibold transition-all hover:scale-105",
             isSettings
               ? "border-primary shadow-md shadow-primary/30"
               : "border-primary/20 hover:border-primary/40"

@@ -62,29 +62,29 @@ export default function Sidebar() {
     <aside
       className={cn(
         "flex h-screen flex-col border-r border-border bg-card transition-all duration-300 overflow-hidden",
-        open ? "w-60" : "w-16"
+        open ? "w-72" : "w-20"
       )}
     >
       {/* Logo + toggle */}
-      <div className="flex h-16 items-center border-b border-border px-2 gap-2">
+      <div className="flex h-20 items-center border-b border-border px-3 gap-3">
         <button
           onClick={() => setOpen(!open)}
-          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
+          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground transition-all"
         >
-          {open ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
+          {open ? <PanelLeftClose className="h-5 w-5" /> : <PanelLeftOpen className="h-5 w-5" />}
         </button>
         {open && (
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
-              <Music className="h-4 w-4 text-primary" />
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 border border-primary/20">
+              <Music className="h-5 w-5 text-primary" />
             </div>
-            <span className="text-sm font-semibold text-foreground tracking-wide">Wavr</span>
+            <span className="text-base font-semibold text-foreground tracking-wide">Wavr</span>
           </div>
         )}
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+      <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
         {projectId ? (
           <>
             {/* Back to projects */}
@@ -92,11 +92,11 @@ export default function Sidebar() {
               href="/projects"
               title={!open ? "Tous les projets" : undefined}
               className={cn(
-                "group flex items-center rounded-lg py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all mb-2",
-                open ? "gap-3 px-3" : "justify-center px-2"
+                "group flex items-center rounded-lg py-3 text-base text-muted-foreground hover:bg-accent hover:text-foreground transition-all mb-3",
+                open ? "gap-3 px-4" : "justify-center px-3"
               )}
             >
-              <ArrowLeft className="h-4 w-4 flex-shrink-0" />
+              <ArrowLeft className="h-5 w-5 flex-shrink-0" />
               {open && <span>Tous les projets</span>}
             </Link>
 
@@ -105,23 +105,23 @@ export default function Sidebar() {
               href={`/projects/${projectId}`}
               title={!open ? "Vue d'ensemble" : undefined}
               className={cn(
-                "group flex items-center rounded-lg py-2 text-sm transition-all",
-                open ? "gap-3 px-3" : "justify-center px-2",
+                "group flex items-center rounded-lg py-3 text-base transition-all",
+                open ? "gap-3 px-4" : "justify-center px-3",
                 pathname === `/projects/${projectId}`
                   ? "bg-primary/10 text-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-foreground"
               )}
             >
-              <FolderOpen className="h-4 w-4 flex-shrink-0" />
+              <FolderOpen className="h-5 w-5 flex-shrink-0" />
               {open && "Vue d'ensemble"}
             </Link>
 
             {open && (
-              <p className="px-3 pt-3 pb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground/50">
+              <p className="px-4 pt-4 pb-2 text-xs font-semibold uppercase tracking-widest text-muted-foreground/50">
                 Modules
               </p>
             )}
-            {!open && <div className="my-2 border-t border-border/50" />}
+            {!open && <div className="my-3 border-t border-border/50" />}
 
             {/* Module links */}
             {PROJECT_MODULES.map((mod) => {
@@ -133,34 +133,34 @@ export default function Sidebar() {
                   href={href}
                   title={!open ? mod.name : undefined}
                   className={cn(
-                    "group flex items-center rounded-lg py-2 text-sm transition-all",
-                    open ? "gap-3 px-3" : "justify-center px-2",
+                    "group flex items-center rounded-lg py-3 text-base transition-all",
+                    open ? "gap-3 px-4" : "justify-center px-3",
                     isActive
                       ? "bg-primary/10 text-primary"
                       : "text-muted-foreground hover:bg-accent hover:text-foreground"
                   )}
                 >
-                  <mod.icon className={cn("h-4 w-4 flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+                  <mod.icon className={cn("h-5 w-5 flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
                   {open && mod.name}
                 </Link>
               );
             })}
 
             {/* Manage project */}
-            <div className="pt-2">
-              {open && <div className="border-t border-border/50 mb-2" />}
+            <div className="pt-3">
+              {open && <div className="border-t border-border/50 mb-3" />}
               <Link
                 href={`/projects/${projectId}/manage`}
                 title={!open ? "Gérer le projet" : undefined}
                 className={cn(
-                  "group flex items-center rounded-lg py-2 text-sm transition-all",
-                  open ? "gap-3 px-3" : "justify-center px-2",
+                  "group flex items-center rounded-lg py-3 text-base transition-all",
+                  open ? "gap-3 px-4" : "justify-center px-3",
                   pathname.startsWith(`/projects/${projectId}/manage`)
                     ? "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-accent hover:text-foreground"
                 )}
               >
-                <Users className="h-4 w-4 flex-shrink-0" />
+                <Users className="h-5 w-5 flex-shrink-0" />
                 {open && "Membres & invitations"}
               </Link>
             </div>
@@ -171,18 +171,18 @@ export default function Sidebar() {
             href="/projects"
             title={!open ? "Mes projets" : undefined}
             className={cn(
-              "group flex items-center rounded-lg py-2 text-sm transition-all",
-              open ? "gap-3 px-3" : "justify-center px-2",
+              "group flex items-center rounded-lg py-3 text-base transition-all",
+              open ? "gap-3 px-4" : "justify-center px-3",
               pathname.startsWith("/projects")
                 ? "bg-primary/10 text-primary"
                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
             )}
           >
-            <FolderOpen className={cn("h-4 w-4 flex-shrink-0", pathname.startsWith("/projects") ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
+            <FolderOpen className={cn("h-5 w-5 flex-shrink-0", pathname.startsWith("/projects") ? "text-primary" : "text-muted-foreground group-hover:text-foreground")} />
             {open && (
               <span className="flex flex-1 items-center justify-between">
                 Mes projets
-                <ChevronRight className="h-3 w-3 opacity-40" />
+                <ChevronRight className="h-4 w-4 opacity-40" />
               </span>
             )}
           </Link>
@@ -190,18 +190,18 @@ export default function Sidebar() {
       </nav>
 
       {/* Bottom */}
-      <div className="border-t border-border px-2 py-3 space-y-0.5">
+      <div className="border-t border-border px-3 py-4 space-y-1">
         {currentUser?.role === "admin" && (
           <Link
             href="/admin"
             title={!open ? "Administration" : undefined}
             className={cn(
-              "flex items-center gap-3 rounded-lg py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
-              open ? "px-3" : "justify-center px-2",
+              "flex items-center gap-3 rounded-lg py-3 text-base text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
+              open ? "px-4" : "justify-center px-3",
               pathname === "/admin" && "bg-primary/10 text-primary"
             )}
           >
-            <Shield className={cn("h-4 w-4 flex-shrink-0", pathname === "/admin" ? "text-primary" : "text-muted-foreground")} />
+            <Shield className={cn("h-5 w-5 flex-shrink-0", pathname === "/admin" ? "text-primary" : "text-muted-foreground")} />
             {open && "Administration"}
           </Link>
         )}
@@ -209,22 +209,22 @@ export default function Sidebar() {
           href="/settings"
           title={!open ? "Paramètres" : undefined}
           className={cn(
-            "flex items-center gap-3 rounded-lg py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
-            open ? "px-3" : "justify-center px-2"
+            "flex items-center gap-3 rounded-lg py-3 text-base text-muted-foreground hover:bg-accent hover:text-foreground transition-all",
+            open ? "px-4" : "justify-center px-3"
           )}
         >
-          <Settings className="h-4 w-4 flex-shrink-0" />
+          <Settings className="h-5 w-5 flex-shrink-0" />
           {open && "Paramètres"}
         </Link>
         <button
           onClick={handleLogout}
           title={!open ? "Déconnexion" : undefined}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg py-2 text-sm text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all",
-            open ? "px-3" : "justify-center px-2"
+            "flex w-full items-center gap-3 rounded-lg py-3 text-base text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-all",
+            open ? "px-4" : "justify-center px-3"
           )}
         >
-          <LogOut className="h-4 w-4 flex-shrink-0" />
+          <LogOut className="h-5 w-5 flex-shrink-0" />
           {open && "Déconnexion"}
         </button>
       </div>

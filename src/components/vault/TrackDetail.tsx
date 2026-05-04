@@ -46,6 +46,14 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onUpdate
     key: ""
   });
   const [saving, setSaving] = useState(false);
+  const [editingVersionId, setEditingVersionId] = useState<string | null>(null);
+  const [versionEditForm, setVersionEditForm] = useState({
+    title: "",
+    version: "untitled",
+    bpm: "",
+    key: ""
+  });
+  const [savingVersion, setSavingVersion] = useState(false);
 
   const supabase = createClient();
 
@@ -170,7 +178,7 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onUpdate
       key: editForm.key.trim() || null
     };
     console.log("[TrackDetail] Prepared updateData:", updateData);
-    
+
     const { error } = await supabase
       .from("tracks")
       .update(updateData)
@@ -192,6 +200,50 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onUpdate
       onUpdate?.();
     }
     setSaving(false);
+  };
+
+  const handleEditVersion = (version: Track) => {
+    setEditingVersionId(version.id);
+    setVersionEditForm({
+      title: version.title || "",
+      version: (version.version?.toLowerCase() || "untitled"),
+      bpm: version.bpm?.toString() || "",
+      key: version.key || ""
+    });
+  };
+
+  const handleUpdateVersion = async (versionId: string) => {
+    setSavingVersion(true);
+    const updateData = {
+      title: versionEditForm.title.trim(),
+      version: versionEditForm.version.toLowerCase(),
+      bpm: versionEditForm.bpm ? parseInt(versionEditForm.bpm) : null,
+      key: versionEditForm.key.trim() || null
+    };
+
+    const { error } = await supabase
+      .from("tracks")
+      .update(updateData)
+      .eq("id", versionId);
+
+    if (error) {
+      alert(`Erreur lors de la mise à jour : ${error.message}`);
+    } else {
+      setEditingVersionId(null);
+      await reloadVersions();
+      onUpdate?.();
+    }
+    setSavingVersion(false);
+  };
+
+  const handleCancelVersionEdit = () => {
+    setEditingVersionId(null);
+    setVersionEditForm({
+      title: "",
+      version: "untitled",
+      bpm: "",
+      key: ""
+    });
   };
 
   const formatDate = (iso: string) => {
@@ -419,40 +471,110 @@ export default function TrackDetail({ track, onClose, onPlay, onDelete, onUpdate
                 <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
               </div>
             ) : versions.map((v) => (
-              <div 
-                key={v.id}
-                className={cn(
-                  "group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer",
-                  v.id === track.id 
-                    ? "bg-primary/5 border-primary/20 shadow-sm" 
-                    : "bg-card border-border hover:bg-accent/50"
-                )}
-                onClick={() => onPlay(v)}
-              >
-                <div className={cn(
-                  "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
-                  v.id === track.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
-                )}>
-                  <Play className="h-3.5 w-3.5 fill-current" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="text-xs font-bold text-foreground truncate">{v.title}</p>
-                    <span className={cn(
-                      "text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase",
-                      v.id === track.id ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
-                    )}>
-                      {v.version}
-                    </span>
+              <div key={v.id}>
+                {editingVersionId === v.id ? (
+                  <div className="p-4 rounded-xl border border-primary/30 bg-primary/5 space-y-3">
+                    <input
+                      type="text"
+                      value={versionEditForm.title}
+                      onChange={(e) => setVersionEditForm({ ...versionEditForm, title: e.target.value })}
+                      className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      placeholder="Titre du track"
+                    />
+                    <div className="grid grid-cols-3 gap-1 p-1 bg-secondary/50 rounded-xl border border-border/50">
+                      {versions_list.map((ver) => (
+                        <button
+                          key={ver.id}
+                          type="button"
+                          onClick={() => setVersionEditForm(prev => ({ ...prev, version: ver.id }))}
+                          className={cn(
+                            "px-1 py-2 rounded-lg text-[7px] font-black uppercase tracking-tighter border transition-all flex items-center justify-center",
+                            versionEditForm.version === ver.id
+                              ? cn(ver.color, "border-current shadow-sm bg-white/10 opacity-100")
+                              : "bg-transparent text-muted-foreground border-transparent hover:bg-white/5 opacity-40 hover:opacity-70"
+                          )}
+                        >
+                          {ver.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="number"
+                        value={versionEditForm.bpm}
+                        onChange={(e) => setVersionEditForm({ ...versionEditForm, bpm: e.target.value })}
+                        placeholder="BPM"
+                        className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                      <input
+                        type="text"
+                        value={versionEditForm.key}
+                        onChange={(e) => setVersionEditForm({ ...versionEditForm, key: e.target.value })}
+                        placeholder="Key"
+                        className="w-full bg-secondary/50 border border-border rounded-lg px-3 py-2 text-sm font-bold focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleUpdateVersion(v.id)}
+                        disabled={savingVersion}
+                        className="flex-1 flex items-center justify-center gap-2 py-2 rounded-lg bg-primary text-primary-foreground text-xs font-bold hover:bg-primary/90 disabled:opacity-50 transition-all"
+                      >
+                        {savingVersion ? <Loader2 className="h-3 w-3 animate-spin" /> : <Check className="h-3 w-3" />}
+                        Sauvegarder
+                      </button>
+                      <button
+                        onClick={handleCancelVersionEdit}
+                        className="flex-1 py-2 rounded-lg border border-border text-muted-foreground text-xs font-bold hover:bg-accent transition-all"
+                      >
+                        Annuler
+                      </button>
+                    </div>
                   </div>
-                  <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(v.created_at)}</p>
-                </div>
-                <button 
-                  onClick={(e) => { e.stopPropagation(); window.open(v.file_url, '_blank'); }}
-                  className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-secondary rounded-lg text-muted-foreground transition-all"
-                >
-                  <Download className="h-3.5 w-3.5" />
-                </button>
+                ) : (
+                  <div
+                    className={cn(
+                      "group flex items-center gap-3 p-3 rounded-xl border transition-all cursor-pointer",
+                      v.id === track.id
+                        ? "bg-primary/5 border-primary/20 shadow-sm"
+                        : "bg-card border-border hover:bg-accent/50"
+                    )}
+                    onClick={() => onPlay(v)}
+                  >
+                    <div className={cn(
+                      "h-8 w-8 rounded-lg flex items-center justify-center transition-colors",
+                      v.id === track.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary"
+                    )}>
+                      <Play className="h-3.5 w-3.5 fill-current" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <p className="text-xs font-bold text-foreground truncate">{v.title}</p>
+                        <span className={cn(
+                          "text-[9px] font-black px-1.5 py-0.5 rounded-md uppercase",
+                          v.id === track.id ? "bg-primary/20 text-primary" : "bg-secondary text-muted-foreground"
+                        )}>
+                          {v.version}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">{formatDate(v.created_at)}</p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleEditVersion(v); }}
+                        className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-secondary rounded-lg text-muted-foreground transition-all"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); window.open(v.file_url, '_blank'); }}
+                        className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-secondary rounded-lg text-muted-foreground transition-all"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             ))}
           </div>
